@@ -1,5 +1,5 @@
 ---
-title: "Kubebuilder Source Code Part 2"
+title: "K8s Operator 开发（一）：概述"
 date: 2022-01-15T21:20:28+08:00
 draft: true
 ---
@@ -64,7 +64,8 @@ kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
 ├── api # CR
 │   └── v1alpha1
 │       ├── groupversion_info.go
-│       └── rebootpolicy_types.go # 自定义资源 Go 结构体声明
+│       ├── rebootpolicy_types.go # 自定义资源 Go 结构体声明
+│       └── zz_generated.deepcopy.go # 自动生产的结构体深拷贝代码
 ├── bin
 ├── config # YAMl 文件
 │   ├── crd # 自定义资源定义（Custom Resource Definition）
@@ -83,19 +84,480 @@ kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
 └── main.go # Operator 入口程序
 ```
 
+### 测试部署
+
+api/valpha1/rebootpolicy_types.go 包含了自定义资源的 Go 代码，代码里默认定义了两个结构体 `RebootPolicy` 和 `RebootPolicyList`。测试部署，首先使用 `make install` 命令安装自定义资源定义（CustomResourceDefinition，CRD）文件到 K8s 集群（通过读取 ~/.kube/config，本地测试 K8s 环境可以使用 minikube）。CRD 是对自定义资源的结构化定义，定义了 CR 支持的字段、字段类型。使用 CR 前必须先创建并应用对应的 CRD。如下片段是默认创建出来的 CRD，定义了自定义资源 RebootPolicy，spec 里包含一个 foo 字段。
+
+```yaml
+# kubectl get crd rebootpolicies.autoreboot.my.domain -oyaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rebootpolicies.autoreboot.my.domain
+spec:
+  group: autoreboot.my.domain
+  names:
+    kind: RebootPolicy
+    listKind: RebootPolicyList
+    plural: rebootpolicies
+    singular: rebootpolicy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: RebootPolicy is the Schema for the rebootpolicies API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RebootPolicySpec defines the desired state of RebootPolicy
+            properties:
+              foo:
+                description: Foo is an example field of RebootPolicy. Edit rebootpolicy_types.go
+                  to remove/update
+                type: string
+            type: object
+          status:
+            description: RebootPolicyStatus defines the observed state of RebootPolicy
+            type: object
+        type: object
+    subresources:
+      status: {}
+```
+
+有了 RebootPolicy CRD，我们可以应用 config/samples 下的 CR：`kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml`。可以看到一个名为 rebootpolicy-sample 的 CR 已成功创建。我们可以像访问 K8s 内置资源一样，操作该自定义资源。
+
+```bash
+# 通过 kubectl 访问
+$ kubectl get rebootpolicies rebootpolicy-sample
+NAME                  AGE
+rebootpolicy-sample   2m3s
+
+# 通过 K8s API 访问
+$ kubectl get --raw /apis/autoreboot.my.domain/v1alpha1/namespaces/default/rebootpolicies/rebootpolicy-sample
+apiVersion: autoreboot.my.domain/v1alpha1
+kind: RebootPolicy
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"autoreboot.my.domain/v1alpha1","kind":"RebootPolicy","metadata":{"annotations":{},"name":"rebootpolicy-sample","namespace":"default"},"spec":null}
+  creationTimestamp: "2022-01-17T03:09:17Z"
+  generation: 1
+  name: rebootpolicy-sample
+  namespace: default
+  resourceVersion: "214734"
+  uid: 208c992e-f134-470d-8bc8-97191c3a6c4f
+```
+
+Operator 也是通过访问 kube-apiserver 获取 CR 的状态。本地测试运行 Operator 可以使用 `make run` 命令（虽然现在 Operator 代码里没有任何业务逻辑）。
+
+```bash
+/Users/xxx/GolandProjects/autorebooter/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/Users/xxx/GolandProjects/autorebooter/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./main.go
+2022-01-17T11:24:56.834+0800    INFO    controller-runtime.metrics      metrics server is starting to listen    {"addr": ":8080"}
+2022-01-17T11:24:56.835+0800    INFO    setup   starting manager
+2022-01-17T11:24:56.835+0800    INFO    starting metrics server {"path": "/metrics"}
+2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting EventSource    {"reconciler group": "autoreboot.my.domain", "reconciler kind": "RebootPolicy", "source": "kind source: /, Kind="}
+2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting Controller     {"reconciler group": "autoreboot.my.domain", "reconciler kind": "RebootPolicy"}
+2022-01-17T11:24:56.937+0800    INFO    controller.rebootpolicy Starting workers        {"reconciler group": "autoreboot.my.domain", "reconciler kind": "RebootPolicy", "worker count": 1}
+```
+
 ### 定义自定义资源
 
+根据业务需求，我们定义如下 CR。自定义资源 RebootPolicy 的 spec 字段由两部分组成：target 和 policies 数组。target 引用一个期望根据重启策略自动重启的应用，policies 定义一组重启触发策略。每一个触发器是一个探针，设计上参考 Pod 的存活探针。示例中定义了一个重启触发策略 policy-1，它每隔 5 秒执行 Operator 里 /policies 目录下挂载的 diff.sh 脚本（连接、读取 MySQL 表字段值并与上一次的值比较）。一旦脚本退出码不为 0，重启 target 引用的工作负载。重启方式类似与 kubectl rollout restart 修改 .spec.template.metadata.annotations 字段 `kubectl.kubernetes.io/restartedAt: "2022-01-17T11:55:27+08:00"`。 
 
+```yaml
+apiVersion: autorebooting.demo.netease.com/v1alpha1
+kind: RebootPolicy
+metadata:
+  name: rebootpolicy-sample
+spec:
+  target:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx
+  policies:
+  - name: policy-1
+    comment: xxx
+    trigger:
+      probe:
+        exec:
+          command: ["bash", "./scripts/diff.sh"]
+        periodSeconds: 5
+```
+
+回到 api/valpha1/rebootpolicy_types.go 代码，修改 RebootPolicySpec 结构体，增加 Target 和 Policies 字段：
+
+```go
+import corev1 "k8s.io/api/core/v1"
+
+// RebootPolicySpec defines the desired state of RebootPolicy
+type RebootPolicySpec struct {
+    // INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+    // Important: Run "make" to regenerate code after modifying this file
+
+    Target   Target   `json:"target,omitempty"`
+    Policies []Policy `json:"policies,omitempty"`
+}
+
+type Target struct {
+    metav1.TypeMeta `json:",inline"`
+    Name            string `json:"name,omitempty"`
+    // - 表示转 JSON 时忽略该字段。
+    // 本示例中 target 都默认存在于与 CR 同命名空间下。
+    // 增加该字段仅用于辅助编程。
+    Namespace       string `json:"-"` 
+}
+
+type Policy struct {
+    Name    string  `json:"name,omitempty"`
+    Comment string  `json:"comment,omitempty"`
+    Trigger Trigger `json:"trigger,omitempty"`
+}
+
+type Trigger struct {
+    Probe *corev1.Probe `json:"probe,omitempty"`
+}
+```
+
+重新 `make install` 安装 CRD。`make install` 会调用 `make manifests` 命令生成新的深拷贝代码以及更新后的 CRD YAML。
 
 ### 编写控制器
 
-### 部署
+控制器本身是一个无限循环进程，一旦监听到 CR 的创建、修改、删除就会触发 controllers/rebootpolicy_controller.go 控制器代码里的调协函数 Reconcile()。所以业务逻辑都应该放在 Reconcile 里。后续文章我们会详细介绍 Kubebuilder 生成的其他模板代码的含义以及更多最佳实践。我们在 Reconcile 里编写代码如下：
+
+```go
+import prober "my.domain/autorebooter/pkg"
+
+func (r *RebootPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+    _ = log.FromContext(ctx)
+
+    // TODO(user): your logic here
+    // CR 事件触发 Reconcile。
+    // 第一步，先获取 CR 对象
+    rp := &autorebooterv1alpha1.RebootPolicy{}
+    err := r.Get(ctx, req.NamespacedName, rp)
+    if err != nil {
+        return ctrl.Result{}, err
+    }
+    // 第二步，拿到要重启的目标工作负载
+    // 并默认设置该工作负载在与 CR 同名的命名空间下
+    t := rp.Spec.Target
+    t.Namespace = req.Namespace
+
+    // 第三步，初始化探针
+    // 实现上参考了 kubelet probe_manager 源码
+    prober.Init(r, t)
+    for _, p := range rp.Spec.Policies {
+        // 启动后台 goroutine，周期性地探测，
+        // 并根据策略重启执行重启
+        prober.AddProbe(ctx, p)
+    }
+
+    return ctrl.Result{}, nil
+}
+```
+
+一旦触发 Reconcile()，代码执行四步操作：第一步，拿到最新的 CR，底层原理上并不是通过访问 kube-apiserver 从 etcd 拿数据，而是使用本地缓存，这样避免频繁与 kube-apiserver 通信；第二步，从 CR 获取我们要目标工作负载；第三步，初始化探针管理，并根据定义的重启探针策略，创建后台探针 goroutine 周期性地执行探针检测，并按需要重启目标应用。参考 kubectl rollout restart 命令的重启方式，是修改 .spec.template 字段，比如增加一个 annotation。
+
+prober.Init 和 prober.AddProbe 是我们定义的代码，参考了 kubelet probe_manager 源码。代码可以看 /pkg 目录下的 probe_manager.go 和 worker.go 代码。在 probe_manager.go 定义了一个内部 probe manager，调用 Init 函数初始化该 manager；调用 AddProbe 会启动一个 worker 协程，并加入到 workers 数组中。
+
+```go
+// probe_manager.go
+
+type manager struct {
+    client  client.Client
+    workers []worker
+    target  v1alpha1.Target
+}
+
+var (
+    once            sync.Once
+    internalManager *manager
+)
+
+func Init(c client.Client, t v1alpha1.Target) {
+    once.Do(func() {
+        internalManager = &manager{
+            client:  c,
+            workers: []worker{},
+        }
+    })
+
+    for _, w := range internalManager.workers {
+        w.stop()
+    }
+    internalManager.workers = []worker{}
+    internalManager.target = t
+}
+
+func AddProbe(ctx context.Context, p v1alpha1.Policy) {
+    w := newWorker(internalManager.client, internalManager.target, p.Trigger.Probe)
+    internalManager.workers = append(internalManager.workers, w)
+    go w.run(ctx)
+}
+```
+
+worker.go 代码管理 worker 后台协程的生命周期。run() 中会先做 doProbe 探测，比如执行 exec 探针运行 shell 脚本。如果返回码不为 0，则认为需要重启并调用 rolloutRestart()。rolloutRestart 先确定目标工作负载的 API 类型（GVK），然后执行 Patch 操作，拿到最新状态并更新。
+
+```go
+// worker.go
+
+const patchJSON = `{"spec": {"template": {"metadata": {"annotations": {"autorebooter.my.domain/restartedAt": "%s"}}}}}`
+
+type worker struct {
+    client.Client
+    stopCh chan struct{}
+    // Describes the probe configuration (read-only)
+    target v1alpha1.Target
+    spec   *corev1.Probe
+}
+
+func newWorker(c client.Client, target v1alpha1.Target, spec *corev1.Probe) worker {
+    stopChan := make(chan struct{})
+    return worker{c, stopChan, target, spec}
+}
+
+func (w *worker) run(ctx context.Context) {
+    l := log.FromContext(ctx)
+
+    probeTickerPeriod := time.Duration(w.spec.PeriodSeconds) * time.Second
+    probeTicker := time.NewTicker(probeTickerPeriod)
+
+probeLoop:
+    for {
+        shouldReboot, err := w.doProbe()
+        if err != nil {
+            l.Error(err, "fail to probe")
+        }
+        if shouldReboot {
+            // reboot target
+            err = w.rolloutRestart(ctx)
+            if err != nil {
+                l.Error(err, "fail to rollout restart")
+            }
+        }
+
+        // Wait for next probe tick.
+        select {
+        case <-ctx.Done():
+            break probeLoop
+        case <-w.stopCh:
+            break probeLoop
+        case <-probeTicker.C:
+            // continue
+        }
+    }
+}
+
+func (w *worker) doProbe() (bool, error) {
+    var result probe.Result
+    var err error
+    if w.spec.Exec != nil {
+        if len(w.spec.Exec.Command) != 0 {
+            p := execprobe.New()
+            cmd := util.New().Command(w.spec.Exec.Command[0], w.spec.Exec.Command[1:]...)
+            result, _, err = p.Probe(cmd)
+        }
+    }
+    if err != nil {
+        return false, err
+    }
+	
+    return result == probe.Failure, nil
+}
+
+func (w *worker) stop() {
+    select {
+    case w.stopCh <- struct{}{}:
+    default: // Non-blocking.
+    }
+}
+
+// inspired by kubectl rollout restart
+// refer to https://github.com/kubernetes/kubectl/blob/release-1.16/pkg/polymorphichelpers/objectrestarter.go#L32
+func (w *worker) rolloutRestart(ctx context.Context) error {
+    targetGV, err := schema.ParseGroupVersion(w.target.APIVersion)
+    if err != nil {
+        return err
+    }
+    gvk := schema.GroupVersionKind{
+        Group:   targetGV.Group,
+        Version: targetGV.Version,
+        Kind:    w.target.Kind,
+    }
+
+    switch gvk {
+    case schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}:
+        // Patch
+        obj := &appv1.Deployment{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      w.target.Name,
+                Namespace: w.target.Namespace,
+            },
+        }
+        patchData := []byte(fmt.Sprintf(patchJSON, time.Now().Format(time.RFC3339)))
+        return w.Patch(ctx, obj, client.RawPatch(types.StrategicMergePatchType, patchData))
+    case schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}: // todo
+    case schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}: // todo
+    }
+
+    return nil
+}
+```
+
+至此，我们代码逻辑以完成，现在可以在本地 K8s 集群上测试（如，minikube）：
+1. `make install & kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml` 安装 CRD 和 CR。在我们的 RebootPolicy 中设置了脚本路径为 ./scripts/diff.sh。这个脚本的内容是连接本地 mysql，访问比较 demo_tbl 表的 name 字段。
+
+```bash
+#!/bin/bash
+HOST=127.0.0.1
+USER=root
+PASSWORD=root
+DATABASE_NAME=demo
+TABLE_NAME=demo_tbl
+OLDFILE=oldout.tmp
+NEWFILE=newout.tmp
+
+# install mysql
+which mysql
+if [ $? != 0 ] && [ $IS_INSTALLING_MYSQL == 1 ]; then
+    apt-get install mysql-client -y
+    export IS_INSTALLING_MYSQL=1
+fi
+
+# connect to mysql
+mysql -h$HOST -u$USER -p$PASSWORD << EOF > $NEWFILE
+  USE $DATABASE_NAME;
+  SELECT name FROM $TABLE_NAME;
+EOF
+
+# compare
+if [ -f $OLDFILE ]
+then
+  diff $NEWFILE $OLDFILE > /dev/null
+  RET=$?
+  # promote new output to old
+  mv $NEWFILE $OLDFILE
+  if [ $RET != 0 ]; then
+    exit 1
+  fi
+else
+  mv $NEWFILE $OLDFILE
+fi
+```
+
+2. 准备本地 MySQL 环境（用户名/密码：root），部署目标应用（和 rebootpolicy-sample.spec.target 的描述一致）：
+
+```sql
+CREATE TABLE IF NOT EXISTS `demo_tbl`(
+    `id` INT UNSIGNED AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    PRIMARY KEY ( `id` )
+)
+
+INSERT INTO demo_tbl (name) VALUES ("aaa");
+INSERT INTO demo_tbl (name) VALUES ("bbb");
+```
+
+```bash
+kubectl create deployment nginx --image=nginx:1.14.2 --replicas=3  --port=80
+```
+
+3. `make run` 本地运行 Operator
+
+4. 在 MySQL 中修改 name 列，观察 kubectl get po 可以看到 Pod 全部重启。
+
+```sql
+UPDATE demo_tbl SET name="ccc" WHERE id=1;
+```
+
+```bash
+$ kubectl get po
+NAME                     READY   STATUS              RESTARTS   AGE
+nginx-56bc45d9f7-5kps5   1/1     Running             0          2s
+nginx-56bc45d9f7-7f4zk   0/1     ContainerCreating   0          0s
+nginx-6795d6456-hqm4r    1/1     Running             0          62s
+nginx-6795d6456-p68wl    1/1     Running             0          59s
+nginx-6795d6456-rklrt    1/1     Terminating         0          60s
+```
+
+### 部署与 RBAC
+
+测试通过后，可以打包 Operator 和 CR，CRD 到正式环境。Operator 以 Deployment 形式部署。但在部署到 Operator 到正式环境前，我们还需要额外部署 RBAC 资源，不然会发现 Operator 没有权限操作 Deployment API。我们在本地测试环境可以操作，是因为使用了集群管理员 kubeconfig，拥有对所有 K8s API 的访问权限。
+
+Kubernetes 使用基于角色的访问控制（role-based access control，RBAC）进行鉴权[^5]。我们的 Operator 使用了三种 RBAC 资源：ClusterRole，ClusterRoleBinding 和 ServiceAccount。三个 YAML 文件在 /config/rbac 目录下。ClusterRole 定义了允许访问的资源（如 apps.deployment）以及允许的操作（patch）。ServiceAccount 是挂载到Pod 里的服务账户（通过 Pod YAML 里 serviceAccountName 字段）。在没有指定 kubeconfig 文件路径的情况，Pod 默认使用服务账户里的 token（容器内路径：/var/run/secrets/kubernetes.io/serviceaccount/token）访问 kube-apiserver。ClusterRoleBinding 给 ServiceAccount 绑定一个 ClusterRole。
+
+> Role 和 ClusterRole 的区别在于作用范围（scope），前者是操作指定命名空间下资源的角色，后者作用于整个集群所有命名空间。
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: controller-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - patch
+  - apiGroups:
+      - autoreboot.my.domain
+    resources:
+      - rebootpolicies
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+```
+
+Kubebuilder 框架也支持自动生成正确的 RBAC 资源，只需要在 rebootpolicy_controller.go 代码里加上以下 tag 即可，通过 make manifests 命令创建相关 YAML。
+
+```go
+//+kubebuilder:rbac:groups=autoreboot.my.domain,resources=rebootpolicies,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=patch
+```
+
+至此，我们已全部介绍完 Operator 概念、Kubebuilder 框架以及如何实现一个 Operator。后续会介绍 Kubebuilder 架构、源码阅读以及 Operator 开发最佳实践。
 
 [^1]: [从 Docker 到 Kubernetes 进阶: DaemonSet 与 StatefulSet 的使用](https://www.qikqiak.com/k8s-book/docs/32.DaemonSet%20%E4%B8%8E%20StatefulSet.html)
 
 [^2]: [Kubernetes Deployment vs. StatefulSets](https://www.baeldung.com/ops/kubernetes-deployment-vs-statefulsets)
 
-[^3]: Programming Kubernetes: Developing Cloud-Native Applications
+[^3]: [Programming Kubernetes: Developing Cloud-Native Applications](https://book.douban.com/subject/33393681/)
 
 [^4]: [The Kubebuilder Book](https://book.kubebuilder.io/)
 
+[^5]: [Kubernetes 文档：使用 RBAC 鉴权](https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/)
