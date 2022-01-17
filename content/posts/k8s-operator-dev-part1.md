@@ -1,7 +1,9 @@
 ---
 title: "K8s Operator 开发（一）：概述"
 date: 2022-01-15T21:20:28+08:00
-draft: true
+toc: true
+categories: ["Kubernetes"]
+series: ["Kubernetes-operator-开发"]
 ---
 
 ## Operator 控制器
@@ -12,7 +14,7 @@ K8s 定义了很多抽象内部资源来描述不同工作负载类型，比如 
 > - Deployment 创建的 Pod 之间没有顺序，服务通过 Service 的 Service IP 暴露。Deployment 也可以使用持久化存储卷实现有状态应用部署，但有使用限制。Deployment 只支持通过 .spec.template.spec.volumes.persistentVolumeClaim 引用一个 PVC（提前创建）。如果该 PVC 访问模式支持且设置为 RWO，Deployment 副本数量必须为 1（单 Pod）；否则，使用 RWX 模式，多个 Pod 共享存储。
 > - StatefulSet：每个 Pod 有自己的存储，通过 .spec.volumeClaimTemplates 为每个 Pod 创建一个独立的 PV 保存其数据和状态。即使删除 StatefulSet 或 Pod 宕机，创建的 PVC 仍保留其数据并可以在 Pod 恢复后重新恢复绑定。StatefulSet 和无头服务配合使用（.spec.clusterIP=None），无头服务不做负载均衡，返回所有关联 Pod 的 IP 地址列表。
 
-这些 K8s 内部资源的状态由对应资源的控制器来维护，比如 Deployment 对应 Deployment Controller。K8s 控制组件 kube-controller-manager 包含了所有内部资源控制器。控制器本质上是一个控制回路（control loop）死循环进程，Watch 资源状态，并做出相应调整，调协当前状态（status）至期望状态（spec），如：滚动更新，恢复宕机的 Pod。对于运行在 Pod 中的程序，如下图[^3]中的 DB 和 Web 程序，他们本身并无感知自身运行在 K8s 环境中。应用运维由 K8s 控制器来完成。
+这些 K8s 内部资源的状态由对应资源的控制器来维护，比如 Deployment 对应 Deployment Controller。K8s 控制组件 kube-controller-manager 包含了所有内部资源控制器。控制器本质上是一个控制回路（control loop）无限循环进程，Watch 资源状态，并做出相应调整，调协当前状态（status）至期望状态（spec），如：滚动更新，恢复宕机的 Pod。对于运行在 Pod 中的程序，如下图[^3]中的 DB 和 Web 程序，他们本身并无感知自身运行在 K8s 环境中。应用运维由 K8s 控制器来完成。
 
 ![k8s-operator-dev-part1-1](../../images/k8s-operator-dev-part1-1.png)
 
@@ -33,7 +35,7 @@ status:
 ```
 
 ## Kubebuilder
-从前文我们知道，开发一个 Operator 需要首先定义 CR 并完成 Operator 代码。K8s 社区提供了 Kubebuilder 开发框架。本节介绍如何实现前面提到的业务运维需求，监听数据库表字段变化，重启业务应用。我们将该 Operator 命名为 Autorebooter，并定义 RebootPolicy 自定义资源。在 RebootPolicy 定义目标业务应用和数据库监听逻辑。总体上，我们需要定义一个 CR，一个 Operator，并部署到 K8s 集群上。 Kubebuilder 详细使用手册可参考官方开发文档[^4]。
+从前文我们知道，开发一个 Operator 首先需要定义 CR 并完成 Operator 代码。K8s 社区提供了 Kubebuilder 开发框架。本节介绍如何实现前面提到的业务运维需求，监听数据库表字段变化，重启业务应用。我们将该 Operator 命名为 Autorebooter，并定义 RebootPolicy 自定义资源。在 RebootPolicy 中定义目标业务应用和数据库监听逻辑。总体上，我们需要定义一个 CR，一个 Operator，并部署到 K8s 集群上。 Kubebuilder 详细使用手册可参考官方开发文档[^4]。
 
 ### 初始化项目
 
@@ -51,7 +53,7 @@ cd autorebooter
 kubebuilder init --domain my.domain --repo my.domain/autorebooter
 ```
 
-为 CR 和 Operator 控制器创建模板代码：这里通过 kubebuilder create api 命令创建。group、version、kind 分别表示 CR 资源的 API 组、版本和资源类型名称。基本上所有 K8s 资源都有这三个部分，如 Job 资源是 batch API Group 下，最新的稳定 API 版本是 v1。该 API Group 下的其他资源还包括 CronJob。GVK 是 K8s 源码中的重要概念，一个 GVK 唯一对应一种资源类型。我们会在本系列后面部分继续介绍。
+接下来，为 CR 和 Operator 控制器创建模板代码。这里通过 `kubebuilder create api` 命令创建。group、version、kind 分别表示 CR 资源的 API 组、版本和资源类型名称。基本上所有 K8s 资源都有这三个部分，如 Job 是在 batch API Group 下，最新的稳定 API 版本是 v1。该 API Group 下的其他资源还包括 CronJob。GVK 是 K8s 源码中的重要概念，一个 GVK 唯一对应一种资源类型。我们会在本系列后面部分继续介绍。
 
 ```bash
 kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
