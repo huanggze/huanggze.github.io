@@ -180,7 +180,7 @@ go run ./main.go
 
 ### 定义自定义资源
 
-根据业务需求，我们定义如下 CR。自定义资源 RebootPolicy 的 spec 字段由两部分组成：target 和 policies 数组。target 引用一个期望根据重启策略自动重启的应用，policies 定义一组重启触发策略。每一个触发器是一个探针，设计上参考 Pod 的存活探针。示例中定义了一个重启触发策略 policy-1，它每隔 5 秒执行 Operator 里 /policies 目录下挂载的 diff.sh 脚本（连接、读取 MySQL 表字段值并与上一次的值比较）。一旦脚本退出码不为 0，重启 target 引用的工作负载。重启方式类似与 kubectl rollout restart 修改 .spec.template.metadata.annotations 字段 `kubectl.kubernetes.io/restartedAt: "2022-01-17T11:55:27+08:00"`。 
+根据业务需求，我们定义如下 CR。自定义资源 RebootPolicy 的 spec 字段由两部分组成：target 和 policies 数组。target 引用一个期望根据重启策略自动重启的应用，policies 定义一组重启触发策略。每一个触发器是一个探针，设计上参考了 Pod 的存活探针。示例中定义了一个重启触发策略 policy-1，它每隔 5 秒执行 Operator 里 /policies 目录下挂载的 diff.sh 脚本（连接、读取 MySQL 表字段值并与上一次的值比较）。一旦脚本退出码不为 0，重启 target 引用的工作负载。重启方式类似与 kubectl rollout restart 修改 .spec.template.metadata.annotations 字段 `kubectl.kubernetes.io/restartedAt: "2022-01-17T11:55:27+08:00"`。 
 
 ```yaml
 apiVersion: autorebooting.demo.netease.com/v1alpha1
@@ -274,9 +274,9 @@ func (r *RebootPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 ```
 
-一旦触发 Reconcile()，代码执行四步操作：第一步，拿到最新的 CR，底层原理上并不是通过访问 kube-apiserver 从 etcd 拿数据，而是使用本地缓存，这样避免频繁与 kube-apiserver 通信；第二步，从 CR 获取我们要目标工作负载；第三步，初始化探针管理，并根据定义的重启探针策略，创建后台探针 goroutine 周期性地执行探针检测，并按需要重启目标应用。参考 kubectl rollout restart 命令的重启方式，是修改 .spec.template 字段，比如增加一个 annotation。
+一旦触发 Reconcile()，代码执行四步操作：第一步，拿到最新的 CR，底层原理上并不是通过访问 kube-apiserver 从 etcd 拿数据，而是使用本地缓存，这样避免频繁与 kube-apiserver 通信；第二步，从 CR 获取我们要实现自动重启的目标工作负载；第三步，初始化探针管理，并根据定义的重启探针策略，创建后台探针 goroutine 周期性地执行探针检测，并按需要重启目标应用（打 annotation 补丁）。这里写回操作是请求发往 kube-apiserver。
 
-prober.Init 和 prober.AddProbe 是我们定义的代码，参考了 kubelet probe_manager 源码。代码可以看 /pkg 目录下的 probe_manager.go 和 worker.go 代码。在 probe_manager.go 定义了一个内部 probe manager，调用 Init 函数初始化该 manager；调用 AddProbe 会启动一个 worker 协程，并加入到 workers 数组中。
+prober.Init 和 prober.AddProbe 是我们定义的代码，参考了 kubelet probe_manager 源码。代码可以放在 /pkg 目录下 probe_manager.go 和 worker.go。在 probe_manager.go 定义了一个内部 probe manager，调用 Init 函数初始化该 manager；调用 AddProbe 则会启动一个 worker 协程，并加入到 workers 数组中。
 
 ```go
 // probe_manager.go
@@ -314,7 +314,7 @@ func AddProbe(ctx context.Context, p v1alpha1.Policy) {
 }
 ```
 
-worker.go 代码管理 worker 后台协程的生命周期。run() 中会先做 doProbe 探测，比如执行 exec 探针运行 shell 脚本。如果返回码不为 0，则认为需要重启并调用 rolloutRestart()。rolloutRestart 先确定目标工作负载的 API 类型（GVK），然后执行 Patch 操作，拿到最新状态并更新。
+worker.go 代码管理 worker 后台协程的生命周期。run() 中会先做 doProbe 探测，比如执行 exec 探针运行 shell 脚本。如果返回码不为 0，则认为需要重启并调用 rolloutRestart()。rolloutRestart 先确定目标工作负载的 API 类型（GVK），然后执行 Patch 操作更新。
 
 ```go
 // worker.go
@@ -422,7 +422,7 @@ func (w *worker) rolloutRestart(ctx context.Context) error {
 }
 ```
 
-至此，我们代码逻辑以完成，现在可以在本地 K8s 集群上测试（如，minikube）：
+至此，我们代码逻辑已完成，现在可以在本地 K8s 集群上测试（如，minikube）：
 1. `make install & kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml` 安装 CRD 和 CR。在我们的 RebootPolicy 中设置了脚本路径为 ./scripts/diff.sh。这个脚本的内容是连接本地 mysql，访问比较 demo_tbl 表的 name 字段。
 
 ```bash
@@ -500,9 +500,9 @@ nginx-6795d6456-rklrt    1/1     Terminating         0          60s
 
 ### 部署与 RBAC
 
-测试通过后，可以打包 Operator 和 CR，CRD 到正式环境。Operator 以 Deployment 形式部署。但在部署到 Operator 到正式环境前，我们还需要额外部署 RBAC 资源，不然会发现 Operator 没有权限操作 Deployment API。我们在本地测试环境可以操作，是因为使用了集群管理员 kubeconfig，拥有对所有 K8s API 的访问权限。
+测试通过后，可以打包 Operator 和 CR，CRD 到正式环境。Operator 以 Deployment 形式部署。但在部署到 Operator 到正式环境前，我们还需要额外部署 RBAC 资源，否则，查看 Operator 日志会发现 Operator 没有权限操作 Deployment API。我们在本地测试环境可以正常运行，是因为使用了集群管理员 kubeconfig，拥有对所有 K8s API 的访问权限。
 
-Kubernetes 使用基于角色的访问控制（role-based access control，RBAC）进行鉴权[^5]。我们的 Operator 使用了三种 RBAC 资源：ClusterRole，ClusterRoleBinding 和 ServiceAccount。三个 YAML 文件在 /config/rbac 目录下。ClusterRole 定义了允许访问的资源（如 apps.deployment）以及允许的操作（patch）。ServiceAccount 是挂载到Pod 里的服务账户（通过 Pod YAML 里 serviceAccountName 字段）。在没有指定 kubeconfig 文件路径的情况，Pod 默认使用服务账户里的 token（容器内路径：/var/run/secrets/kubernetes.io/serviceaccount/token）访问 kube-apiserver。ClusterRoleBinding 给 ServiceAccount 绑定一个 ClusterRole。
+Kubernetes 使用基于角色的访问控制（role-based access control，RBAC）进行鉴权[^5]。我们的 Operator 使用了三种 RBAC 资源：ClusterRole，ClusterRoleBinding 和 ServiceAccount。三个 YAML 文件在 /config/rbac 目录下。ClusterRole 定义了允许访问的资源（如 apps.deployment）以及允许的操作（patch）。ServiceAccount 是挂载到Pod 里的服务账户（通过 Pod YAML 里 serviceAccountName 字段）。在没有指定 kubeconfig 文件路径的情况，Operator 默认使用服务账户里的 token（容器内路径：/var/run/secrets/kubernetes.io/serviceaccount/token）访问 kube-apiserver。ClusterRoleBinding 给 ServiceAccount 绑定一个 ClusterRole。
 
 > Role 和 ClusterRole 的区别在于作用范围（scope），前者是操作指定命名空间下资源的角色，后者作用于整个集群所有命名空间。
 
@@ -545,7 +545,7 @@ subjects:
     name: controller-manager
 ```
 
-Kubebuilder 框架也支持自动生成正确的 RBAC 资源，只需要在 rebootpolicy_controller.go 代码里加上以下 tag 即可，通过 make manifests 命令创建相关 YAML。
+这些 RBAC 资源不需要手动创建。Kubebuilder 框架支持自动生成正确的 RBAC 资源 YAML，只需要在 rebootpolicy_controller.go 代码里加上以下 tag 即可，通过 `make manifests` 命令创建相关 YAML。
 
 ```go
 //+kubebuilder:rbac:groups=autoreboot.my.domain,resources=rebootpolicies,verbs=get;list;watch
