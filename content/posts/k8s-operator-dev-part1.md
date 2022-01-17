@@ -16,7 +16,7 @@ K8s 定义了很多抽象内部资源来描述不同工作负载类型，比如 
 
 这些 K8s 内部资源的状态由对应资源的控制器来维护，比如 Deployment 对应 Deployment Controller。K8s 控制组件 kube-controller-manager 包含了所有内部资源控制器。控制器本质上是一个控制回路（control loop）无限循环进程，Watch 资源状态，并做出相应调整，调协当前状态（status）至期望状态（spec），如：滚动更新，恢复宕机的 Pod。对于运行在 Pod 中的程序，如下图[^3]中的 DB 和 Web 程序，他们本身并无感知自身运行在 K8s 环境中。应用运维由 K8s 控制器来完成。
 
-![k8s-operator-dev-part1-1](../../images/k8s-operator-dev-part1-1.png)
+![k8s-operator-dev-part1-1](/images/k8s-operator-dev-part1-1.png)
 
 虽然 K8s 在容器编排和基础设施层做了统一的抽象，实现了自动化运维，但对特定应用运维以及业务运维上，仍需要人力介入。比如，在 K8s 上安装、升级 Redis 集群，我们需要手动组装和更新多个 K8s 资源，包括：ConfigMap、StatefulSet、Service 等（或通过 Helm）。更复杂的场景是实现业务运维自动化，比如根据数据库某个表字段的更新，重启另一个业务应用。这种场景对控制器提出了更高的要求，要求控制器能拥有业务运维知识，根据特定业务场景自动化管理相关组件。Kubernetes 自身的基础模型元素已经无法支撑不同业务领域下复杂的自动化场景。于是，K8s 社区提出了 Custom Resource（CR）和 Operator 的概念。基于自定义资源和自定义资源控制器，来扩展原生 Kubernetes 的能力。
 
