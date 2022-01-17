@@ -1,7 +1,7 @@
 baseURL = "https://huanggze.github.io"
 languageCode = "en-us"
 title = "Hi Folks"
-copyright = "© XJJ 2021"
+copyright = "© huanggze 2021"
 googleAnalytics = ""
 
 # paginate decides the number of the newest posts
@@ -15,9 +15,9 @@ theme = "minima"
 
 # Author has some of your information to be shown on the home page.
 [author]
-name = "XJJ"
+name = "黄广喆"
 slogon = "A tech lover from Earth 🌍"
-description = "This is Minima, a clean and minimal Hugo theme porting from the [Hexo Minima](https://github.com/adisaktijrs/hexo-theme-minima). Except for everything from Hexo Minima like dark/light mode, it supports KaTeX, Mermaid, comments and some taxonomies like categories, series and tags. I created this using SCSS, Vanilla JS and the most important, Hugo. 😁"
+description = "关注后端开发、云原生、大数据和人工智能。"
 
 
 [params]
@@ -80,16 +80,16 @@ placeholder = ""
 # where `<svg>` is the svg code.
 [[params.social]]
 name = "github"
-url = "https://github.com/mivinci/hugo-theme-minima"
+url = "https://github.com/huanggze"
 svg = ""
-[[params.social]]
-name = "linkedin"
-url = "https://linkedin/in/leonard-mivinci-63895317a"
-svg = ""
-[[params.social]]
-name = "twitter"
-url = "https://twitter.com/Leonard14733745"
-svg = ""
+# [[params.social]]
+# name = "linkedin"
+# url = "https://linkedin/in/leonard-mivinci-63895317a"
+# svg = ""
+# [[params.social]]
+# name = "twitter"
+# url = "https://twitter.com/Leonard14733745"
+# svg = ""
 [[params.social]]
 name = "rss"
 url = "/index.xml"
