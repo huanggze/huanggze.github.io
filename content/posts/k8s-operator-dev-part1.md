@@ -105,3 +105,11 @@ kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
 编写控制器
 部署
 
+从 Docker 到 Kubernetes 进阶: DaemonSet 与 StatefulSet 的使用 ↩︎
+
+Kubernetes Deployment vs. StatefulSets  ↩︎
+
+Programming Kubernetes: Developing Cloud-Native Applications ↩︎
+
+The Kubebuilder Book ↩︎
+
