@@ -159,35 +159,98 @@ type Scheme struct {
 
 ### GVR
 
-[GVR](https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/schema/group_version.go#L96) 也需要与 GVK 建立映射关系（再一次看到 GVK 作为 K8s 资源运转调度的核心重要地位）。GVR 和 GVK 的双向映射放在 [RESTMapping](https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/api/meta/interfaces.go#L93) 对象中。GVR 会在组装 HTTP 请求路径时用到，[详见源码](https://github.com/kubernetes/client-go/blob/v0.23.1/rest/request.go#L470-L476)。
+[GVR](https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/schema/group_version.go#L96) 也需要与 GVK 建立映射关系（再一次看到 GVK 作为 K8s 资源运转调度的核心重要地位）。GVR 和 GVK 映射关系结构体 [DefaultRESTMapper](https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/api/meta/restmapper.go#L57) 中。 通常，DefaultRESTMapper 记录的是同一 GroupVersion 下资源的 GVK/GVR 映射（`versionMapper`），即字段 defaultGroupVersions 数组大小为 1。多个不 GV 的 DefaultRESTMapper 组合成 MultiRESTMapper，记录整个 API 空间的 GVK/GVR 映射。
+
+DefaultRESTMapper 实现了 [RESTMapper 接口](https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/api/meta/interfaces.go#L113)。K8s 控制器和 Operator 在[初始化 client 和 cache 对象](https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cluster/cluster.go#L164-L180)时，都需要传入 RESTMapper 对象以及前面的 Scheme。GVR 会在组装 HTTP 请求路径时用到，[详见源码](https://github.com/kubernetes/client-go/blob/v0.23.1/rest/request.go#L470-L476)。
 
 ```go
-// RESTMapping contains the information needed to deal with objects of a specific
-// resource and kind in a RESTful manner.
-type RESTMapping struct {
-	// Resource is the GroupVersionResource (location) for this endpoint
-	Resource schema.GroupVersionResource
+type DefaultRESTMapper struct {
+	defaultGroupVersions []schema.GroupVersion
 
-	// GroupVersionKind is the GroupVersionKind (data format) to submit to this endpoint
-	GroupVersionKind schema.GroupVersionKind
+	resourceToKind       map[schema.GroupVersionResource]schema.GroupVersionKind
+	kindToPluralResource map[schema.GroupVersionKind]schema.GroupVersionResource
+	kindToScope          map[schema.GroupVersionKind]RESTScope
+	singularToPlural     map[schema.GroupVersionResource]schema.GroupVersionResource
+	pluralToSingular     map[schema.GroupVersionResource]schema.GroupVersionResource
+}
+```
 
-	// Scope contains the information needed to deal with REST Resources that are in a resource hierarchy
-	Scope RESTScope
+> DefaultRESTMapper 如何初始化？\
+> Scheme 的初始化通过调用 SchemeBuilder，而 RESTMapper 的初始化通过服务发现的方式。还记得开篇提到的 unversioned type 吗。这里，在 NewDynamicRESTMapper 方法中，通过 rest.Config（kubeconfig 文件）生成 DiscoveryClient 来获取 API 信息。[源码](https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/apiutil/dynamicrestmapper.go#L77)如下：
+
+```go
+# Dynamic 指运行时的；如果是编译期时，则叫 Static
+func NewDynamicRESTMapper(cfg *rest.Config, opts ...DynamicRESTMapperOption) (meta.RESTMapper, error) {
+	// 生成 DiscoveryClient
+	client, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	drm := &dynamicRESTMapper{
+		limiter: rate.NewLimiter(rate.Limit(defaultRefillRate), defaultLimitSize),
+		newMapper: func() (meta.RESTMapper, error) {
+			// 获取 API 信息，访问 /apis/{group}
+			groupResources, err := restmapper.GetAPIGroupResources(client)
+			if err != nil {
+				return nil, err
+			}
+			return restmapper.NewDiscoveryRESTMapper(groupResources), nil
+		},
+	}
+	for _, opt := range opts {
+		if err = opt(drm); err != nil {
+			return nil, err
+		}
+	}
+	if !drm.lazy {
+		if err := drm.setStaticMapper(); err != nil {
+			return nil, err
+		}
+	}
+	return drm, nil
 }
 ```
 
 ## Client 库
 
+Kubebuilder 封装了各种 HTTP Client 来与 kube-apiserver 交互，分别是：RESTClient、ClientSet、DynamicClient、DiscoveryClient，都来自 [client-go 包](https://pkg.go.dev/k8s.io/client-go)[^3]。
+
+```bash
+k8s.io/client-go@v0.22.1
+├── discovery # 提供服务发现客户端
+├── dynamic # 提供动态客户端
+├── informers # 每种kubernetes资源的informer实现
+│   ├── apps
+│   ├── autoscaling
+│   ├── batch
+│   ├── core
+│   └── ...
+├── kubernetes # 提供ClientSet客户端
+├── listers # 提供RestClient客户端，对api server执行RESTful操作
+│   ├── apps
+│   ├── autoscaling
+│   ├── batch
+│   ├── core
+│   └── ...
+├── metadata
+├── pkg
+├── plugin
+├── rest # 提供RestClient客户端，对api server执行RESTful操作
+├── restmapper
+├── scale # 提供ScaleClient客户端，用于扩容或缩容Deployment、ReplicaSet、Replication Controller等资源对象
+├── transport
+└── util
+
+```
+
+### DiscoveryClient
+
+
+
 discoveryClient:  discovery.NewDiscoveryClientForConfig(cfg)
 
+### Config 文件
 
-dynamic 是指运行时，和static 相对
-func NewDynamicRESTMapper(
-drm.setStaticMapper();
-
-创建 rest config
-client.apiutil
-func createRestConfig
 
 encoder, err := r.c.content.Negotiator.Encoder(r.c.content.ContentType, nil)
 Negotiator 进行编码
@@ -202,3 +265,5 @@ https://zzl-code.github.io/cloudNative/k8s_client_go
 [^1]: [Kubernetes API Concepts: Efficient detection of changes](https://kubernetes.io/docs/reference/using-api/api-concepts/#efficient-detection-of-changes)
 
 [^2]: [Kubernetes API Reference Docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23)
+
+[^3]: [k8s client_go源码解析(1) 源码结构及客户端](https://zzl-code.github.io/cloudNative/k8s_client_go)
