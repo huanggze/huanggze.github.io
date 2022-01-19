@@ -1,0 +1,1007 @@
+<!doctype html><html lang=en>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta property="og:title" content="K8s Operator 开发（二）：K8s API">
+<meta property="og:description" content="K8s API Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH1 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs2。
+1 2 3 4 5 6 7 8  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=1&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://huanggze.github.io/posts/k8s-operator-dev-part2/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-01-17T21:33:05+08:00">
+<meta property="article:modified_time" content="2022-01-17T21:33:05+08:00">
+<meta name=twitter:card content="summary">
+<meta name=twitter:title content="K8s Operator 开发（二）：K8s API">
+<meta name=twitter:description content="K8s API Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH1 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs2。
+1 2 3 4 5 6 7 8  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=1&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
+<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
+<title>
+Hi Folks - K8s Operator 开发（二）：K8s API
+</title>
+<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+<link rel=preconnect href=https://fonts.googleapis.com>
+<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
+<link rel=stylesheet href=/minima.1642584547.css>
+<script defer type=text/javascript src=/minima.1642584547.js></script>
+</head>
+<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<body class="sm:mx-5 sm:my-0">
+<header class="flex justify-between items-center mb-6 sm:my-3">
+<div class="flex items-center">
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
+</div>
+<nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden">
+<a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a>
+</nav>
+</header>
+<details class="toc toc-lines">
+<summary></summary>
+<div class=pb-1>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#k8s-api>K8s API</a>
+<ul>
+<li><a href=#unversioned-type>Unversioned Type</a></li>
+<li><a href=#unstructured-type>Unstructured Type</a></li>
+</ul>
+</li>
+<li><a href=#go-typegvk-与-gvr>Go Type、GVK 与 GVR</a>
+<ul>
+<li><a href=#go-type>Go Type</a></li>
+<li><a href=#gvk>GVK</a></li>
+<li><a href=#gvr>GVR</a></li>
+</ul>
+</li>
+<li><a href=#client-库>Client 库</a>
+<ul>
+<li><a href=#discoveryclient>DiscoveryClient</a></li>
+<li><a href=#restclient>RESTClient</a></li>
+<li><a href=#typedclient-与-clientset>TypedClient 与 ClientSet</a></li>
+<li><a href=#dynamicclient>DynamicClient</a></li>
+<li><a href=#delegatingclient>DelegatingClient</a></li>
+<li><a href=#kubeconfig-文件>Kubeconfig 文件</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</details>
+<h1 class="mt-6 mb-6">K8s Operator 开发（二）：K8s API</h1>
+<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<div>
+Posted at &mdash; Jan 17, 2022
+</div>
+</div>
+<main>
+<p></p>
+<article class=md>
+<h2 id=k8s-api>K8s API</h2>
+<p>Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup> 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 创建 Deployment</span>
+POST /apis/apps/v1/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments
+
+<span class=c1># 修改 Deployment</span>
+PATCH /apis/apps/v1/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments/<span class=o>{</span>name<span class=o>}</span>
+
+<span class=c1># 监听 Nginx Deployment 的增删改事件通知</span>
+GET /apis/apps/v1/watch/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments?watch<span class=o>=</span>1<span class=p>&amp;</span><span class=nv>fieldSelector</span><span class=o>=</span>metadata.name<span class=o>=</span>nginx
+</code></pre></td></tr></table>
+</div>
+</div><p><img src=/images/k8s-operator-dev-part2-1.png alt=k8s-operator-dev-part2-1></p>
+<p>大多数 Kubernetes 资源访问的 API 路径是 <code>/apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}</code>，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 <code>/api/v1</code> 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（<strong>versioned</strong>）、结构化（<strong>structured</strong>）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。</p>
+<p><img src=/images/k8s-operator-dev-part2-2.png alt=k8s-operator-dev-part2-2></p>
+<h3 id=unversioned-type>Unversioned Type</h3>
+<p>K8s 内部工作机制中也包含一些非版本化的数据类型（unversioned），通常用于服务发现等。比如，<code>kubectl api-resources</code> 返回 APIResourceList 列表。APIResourceList 在 K8s 内部就是一个非版本化类型，其他类型还包括 APIVersions、APIGroupList、Status（请求返回状态，如 kubectl get 一个不存在的 Deployment 返回的就是一个包含 404 信息的 Status），<a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/apis/meta/v1/types.go>详细信息见源码</a>。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl api-resources
+NAME                              SHORTNAMES     APIVERSION                               NAMESPACED   KIND
+bindings                                         v1                                       <span class=nb>true</span>         Binding
+componentstatuses                 cs             v1                                       <span class=nb>false</span>        ComponentStatus
+configmaps                        cm             v1                                       <span class=nb>true</span>         ConfigMap
+endpoints                         ep             v1                                       <span class=nb>true</span>         Endpoints
+events                            ev             v1                                       <span class=nb>true</span>         Event
+limitranges                       limits         v1                                       <span class=nb>true</span>         LimitRange
+namespaces                        ns             v1                                       <span class=nb>false</span>        Namespace
+nodes                             no             v1                                       <span class=nb>false</span>        Node
+...
+
+$ curl http://&lt;KUBERNETES_HOST&gt;:&lt;KUBERNETES_PORT&gt;/apis
+<span class=o>{</span>
+  <span class=s2>&#34;kind&#34;</span>: <span class=s2>&#34;APIGroupList&#34;</span>,
+  <span class=s2>&#34;apiVersion&#34;</span>: <span class=s2>&#34;v1&#34;</span>, <span class=c1># 为了方便统一，K8s 代码实现里会视作 unversioned 类型的版本为 v1</span>
+  <span class=s2>&#34;groups&#34;</span>: <span class=o>[</span>
+    <span class=o>{</span>
+      <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;apiregistration.k8s.io&#34;</span>,
+      <span class=s2>&#34;versions&#34;</span>: <span class=o>[</span>
+        <span class=o>{</span>
+          <span class=s2>&#34;groupVersion&#34;</span>: <span class=s2>&#34;apiregistration.k8s.io/v1&#34;</span>,
+          <span class=s2>&#34;version&#34;</span>: <span class=s2>&#34;v1&#34;</span>
+        <span class=o>}</span>,
+        <span class=o>{</span>
+          <span class=s2>&#34;groupVersion&#34;</span>: <span class=s2>&#34;apiregistration.k8s.io/v1beta1&#34;</span>,
+          <span class=s2>&#34;version&#34;</span>: <span class=s2>&#34;v1beta1&#34;</span>
+        <span class=o>}</span>
+      <span class=o>]</span>,
+      <span class=s2>&#34;preferredVersion&#34;</span>: <span class=o>{</span>
+        <span class=s2>&#34;groupVersion&#34;</span>: <span class=s2>&#34;apiregistration.k8s.io/v1&#34;</span>,
+        <span class=s2>&#34;version&#34;</span>: <span class=s2>&#34;v1&#34;</span>
+      <span class=o>}</span>
+    <span class=o>}</span>,
+    ...
+  <span class=o>]</span>
+<span class=o>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>注： 为了方便统一，K8s 代码实现里会视作 unversioned 类型的版本为 v1。源码：k8s.io/apimachinery/pkg/apis/meta/v1/register.go</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Unversioned is group version for unversioned API objects
+</span><span class=c1>// TODO: this should be v1 probably
+</span><span class=c1></span><span class=kd>var</span> <span class=nx>Unversioned</span> <span class=p>=</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersion</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div></blockquote>
+<h3 id=unstructured-type>Unstructured Type</h3>
+<p>非结构化类型主要用于 K8s 扩展等，支持定义由其他外部插件来编解码。这样的数据类型为 <code>map[string]interface{}</code>，而不是一个具体的 Go 结构体。目前暂时没有发现 unstructured 类型的典型用例。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// 源码：k8s.io/apimachinery/pkg/apis/meta/v1/unstructured/unstructured.go
+</span><span class=c1></span>
+<span class=c1>// Unstructured allows objects that do not have Golang structs registered to be manipulated 
+</span><span class=c1>// generically. This can be used to deal with the API objects from a plug-in. Unstructured
+</span><span class=c1>// objects still have functioning TypeMeta features-- kind, version, etc.
+</span><span class=c1></span>
+<span class=kd>type</span> <span class=nx>Unstructured</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=c1>// Object is a JSON compatible map with string, float, int, bool, []interface{}, or
+</span><span class=c1></span>	<span class=c1>// map[string]interface{}
+</span><span class=c1></span>	<span class=c1>// children.
+</span><span class=c1></span>	<span class=nx>Object</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kd>interface</span><span class=p>{}</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id=go-typegvk-与-gvr>Go Type、GVK 与 GVR</h2>
+<p>当我们需要和 K8s 资源打交道时，我们需要搞清楚资源在 K8s 内部的表现形式。有三个概念很重要：Go Type，GVK，GVR。Go Type 是资源的 Go 语言类型，用于序列化和反序列化。GVK（Group + Version + Kind）唯一标识一种资源的资源类型。GVR 是 URI 中的概念。当我们要操作 K8s 资源时，需要依靠 GVK 和 GVR 拼接请求路径，Go Type 序列化/反序列化请求体和返回体，通过底层 http.Client 发送请求。</p>
+<blockquote>
+<p>GVK 和 GVR 是 k8s.io/apimachinery 包里的两个重要概念，区别是 GVK 代表一个 Object 类型，而 GVR 代表一个 HTTP 请求 Path。</p>
+</blockquote>
+<h3 id=go-type>Go Type</h3>
+<p>结构化 K8s 资源都声明有自己的 Go 结构体。比如自定义资源 RebootPolicy，Go 代码定义在 api/v1alpha1/rebootpolicy_types.go 目录下。K8s 资源的类型声明源码地址在 k8s.io/api 包下各自的 /{group}/{version}/types.go 中。如下是 Deployment 类型的声明<a href=https://github.com/kubernetes/api/blob/v0.23.0/apps/v1/types.go#L318>源码</a>。结构化的 K8s 资源都实现了 <a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/interfaces.go#L302>runtime.Object 接口</a>。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Deployment enables declarative updates for Pods and ReplicaSets.
+</span><span class=c1></span><span class=kd>type</span> <span class=nx>Deployment</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>metav1</span><span class=p>.</span><span class=nx>TypeMeta</span> <span class=s>`json:&#34;,inline&#34;`</span>
+	<span class=c1>// Standard object&#39;s metadata.
+</span><span class=c1></span>	<span class=c1>// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+</span><span class=c1></span>	<span class=c1>// +optional
+</span><span class=c1></span>	<span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span> <span class=s>`json:&#34;metadata,omitempty&#34; protobuf:&#34;bytes,1,opt,name=metadata&#34;`</span>
+
+	<span class=c1>// Specification of the desired behavior of the Deployment.
+</span><span class=c1></span>	<span class=c1>// +optional
+</span><span class=c1></span>	<span class=nx>Spec</span> <span class=nx>DeploymentSpec</span> <span class=s>`json:&#34;spec,omitempty&#34; protobuf:&#34;bytes,2,opt,name=spec&#34;`</span>
+
+	<span class=c1>// Most recently observed status of the Deployment.
+</span><span class=c1></span>	<span class=c1>// +optional
+</span><span class=c1></span>	<span class=nx>Status</span> <span class=nx>DeploymentStatus</span> <span class=s>`json:&#34;status,omitempty&#34; protobuf:&#34;bytes,3,opt,name=status&#34;`</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=gvk>GVK</h3>
+<p><a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/schema/group_version.go#L142>GVK</a> 是 K8s 资源运转调度的核心。GVK 数据类型定义为 k8s.io/apimachinery/pkg/runtime/schema 包下的 <code>GroupVersionKind</code> 类型：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// GroupVersionKind unambiguously identifies a kind.  It doesn&#39;t anonymously include GroupVersion
+</span><span class=c1>// to avoid automatic coercion.  It doesn&#39;t use a GroupVersion to avoid custom marshalling
+</span><span class=c1></span><span class=kd>type</span> <span class=nx>GroupVersionKind</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>Group</span>   <span class=kt>string</span>
+	<span class=nx>Version</span> <span class=kt>string</span>
+	<span class=nx>Kind</span>    <span class=kt>string</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>Go Type 和 GVK 的双向映射是通过在 <a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/scheme.go#L46>Scheme 对象</a>中注册实现。使用 scheme 可以辅助快速定位到，这在 Kubebuilder 中大量使用。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>Scheme</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>gvkToType</span> <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>]</span><span class=nx>reflect</span><span class=p>.</span><span class=nx>Type</span>
+	<span class=nx>typeToGVK</span> <span class=kd>map</span><span class=p>[</span><span class=nx>reflect</span><span class=p>.</span><span class=nx>Type</span><span class=p>][]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span>
+
+	<span class=nx>unversionedTypes</span> <span class=kd>map</span><span class=p>[</span><span class=nx>reflect</span><span class=p>.</span><span class=nx>Type</span><span class=p>]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span>
+	<span class=nx>unversionedKinds</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=nx>reflect</span><span class=p>.</span><span class=nx>Type</span>
+
+	<span class=nx>converter</span> <span class=o>*</span><span class=nx>conversion</span><span class=p>.</span><span class=nx>Converter</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=gvr>GVR</h3>
+<p><a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/runtime/schema/group_version.go#L96>GVR</a> 也需要与 GVK 建立映射关系（再一次看到 GVK 作为 K8s 资源运转调度的核心重要地位）。GVR 和 GVK 映射关系结构体 <a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/api/meta/restmapper.go#L57>DefaultRESTMapper</a> 中。 通常，DefaultRESTMapper 记录的是同一 GroupVersion 下资源的 GVK/GVR 映射（<code>versionMapper</code>），即字段 defaultGroupVersions 数组大小为 1。多个不 GV 的 DefaultRESTMapper 组合成 MultiRESTMapper，记录整个 API 空间的 GVK/GVR 映射。</p>
+<p>DefaultRESTMapper 实现了 <a href=https://github.com/kubernetes/apimachinery/blob/v0.23.0/pkg/api/meta/interfaces.go#L113>RESTMapper 接口</a>。K8s 控制器和 Operator 在<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cluster/cluster.go#L164-L180>初始化 client 和 cache 对象</a>时，都需要传入 RESTMapper 对象以及前面的 Scheme。GVR 会在组装 HTTP 请求路径时用到，<a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/request.go#L470-L476>详见源码</a>。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>DefaultRESTMapper</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>defaultGroupVersions</span> <span class=p>[]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersion</span>
+
+	<span class=nx>resourceToKind</span>       <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span><span class=p>]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span>
+	<span class=nx>kindToPluralResource</span> <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span>
+	<span class=nx>kindToScope</span>          <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>]</span><span class=nx>RESTScope</span>
+	<span class=nx>singularToPlural</span>     <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span><span class=p>]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span>
+	<span class=nx>pluralToSingular</span>     <span class=kd>map</span><span class=p>[</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span><span class=p>]</span><span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionResource</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>DefaultRESTMapper 如何初始化？<br>
+Scheme 的初始化通过调用 SchemeBuilder，而 RESTMapper 的初始化通过服务发现的方式。还记得开篇提到的 unversioned type 吗。这里，在 NewDynamicRESTMapper 方法中，通过 rest.Config（kubeconfig 文件）生成 DiscoveryClient 来获取 API 信息。<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/apiutil/dynamicrestmapper.go#L77>源码</a>如下：</p>
+</blockquote>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=err>#</span> <span class=nx>Dynamic</span> <span class=nx>指运行时的</span><span class=err>；</span><span class=nx>如果是编译期时</span><span class=err>，</span><span class=nx>则叫</span> <span class=nx>Static</span>
+<span class=kd>func</span> <span class=nf>NewDynamicRESTMapper</span><span class=p>(</span><span class=nx>cfg</span> <span class=o>*</span><span class=nx>rest</span><span class=p>.</span><span class=nx>Config</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>DynamicRESTMapperOption</span><span class=p>)</span> <span class=p>(</span><span class=nx>meta</span><span class=p>.</span><span class=nx>RESTMapper</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+	<span class=c1>// 生成 DiscoveryClient
+</span><span class=c1></span>	<span class=nx>client</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>discovery</span><span class=p>.</span><span class=nf>NewDiscoveryClientForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+	<span class=p>}</span>
+	<span class=nx>drm</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>dynamicRESTMapper</span><span class=p>{</span>
+		<span class=nx>limiter</span><span class=p>:</span> <span class=nx>rate</span><span class=p>.</span><span class=nf>NewLimiter</span><span class=p>(</span><span class=nx>rate</span><span class=p>.</span><span class=nf>Limit</span><span class=p>(</span><span class=nx>defaultRefillRate</span><span class=p>),</span> <span class=nx>defaultLimitSize</span><span class=p>),</span>
+		<span class=nx>newMapper</span><span class=p>:</span> <span class=kd>func</span><span class=p>()</span> <span class=p>(</span><span class=nx>meta</span><span class=p>.</span><span class=nx>RESTMapper</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+			<span class=c1>// 获取 API 信息，访问 /apis/{group}
+</span><span class=c1></span>			<span class=nx>groupResources</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>restmapper</span><span class=p>.</span><span class=nf>GetAPIGroupResources</span><span class=p>(</span><span class=nx>client</span><span class=p>)</span>
+			<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+				<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+			<span class=p>}</span>
+			<span class=k>return</span> <span class=nx>restmapper</span><span class=p>.</span><span class=nf>NewDiscoveryRESTMapper</span><span class=p>(</span><span class=nx>groupResources</span><span class=p>),</span> <span class=kc>nil</span>
+		<span class=p>},</span>
+	<span class=p>}</span>
+	<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>opt</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>opts</span> <span class=p>{</span>
+		<span class=k>if</span> <span class=nx>err</span> <span class=p>=</span> <span class=nf>opt</span><span class=p>(</span><span class=nx>drm</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+			<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+		<span class=p>}</span>
+	<span class=p>}</span>
+	<span class=k>if</span> <span class=p>!</span><span class=nx>drm</span><span class=p>.</span><span class=nx>lazy</span> <span class=p>{</span>
+		<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>drm</span><span class=p>.</span><span class=nf>setStaticMapper</span><span class=p>();</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+			<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+		<span class=p>}</span>
+	<span class=p>}</span>
+	<span class=k>return</span> <span class=nx>drm</span><span class=p>,</span> <span class=kc>nil</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id=client-库>Client 库</h2>
+<p>K8s 支持多种 HTTP Client 封装来与 kube-apiserver 交互，分别是：RESTClient、ClientSet、DynamicClient、DiscoveryClient，它们都来自 <a href=https://pkg.go.dev/k8s.io/client-go>client-go 包</a><sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>，另外还有 controller-runtime 定义的 DelegatingClient。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>k8s.io/client-go@v0.22.1
+├── discovery <span class=c1># 提供服务发现客户端</span>
+├── dynamic <span class=c1># 提供动态客户端</span>
+├── informers <span class=c1># 每种kubernetes资源的informer实现</span>
+│   ├── apps
+│   ├── autoscaling
+│   ├── batch
+│   ├── core
+│   └── ...
+├── kubernetes <span class=c1># 提供按资源类型的 ClientSet 客户端</span>
+├── listers
+│   ├── apps
+│   ├── autoscaling
+│   ├── batch
+│   ├── core
+│   └── ...
+├── metadata
+├── pkg
+├── rest <span class=c1># 提供 RestClient 客户端，对 kube-apiserver 执行RESTful操作</span>
+├── restmapper
+├── scale <span class=c1># 提供 ScaleClient 客户端，用于扩缩容 Deployment、ReplicaSet 等资源对象</span>
+├── transport
+└── util
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=discoveryclient>DiscoveryClient</h3>
+<p>DiscoveryClient 用于服务发现，以获取安装在 K8s 集群的 API 信息。<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/apiutil/dynamicrestmapper.go#L78>NewDynamicRESTMapper</a> 方法里就用到了 DiscoveryClient 生成 RESTMapper。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>NewDynamicRESTMapper</span><span class=p>(</span><span class=nx>cfg</span> <span class=o>*</span><span class=nx>rest</span><span class=p>.</span><span class=nx>Config</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>DynamicRESTMapperOption</span><span class=p>)</span> <span class=p>(</span><span class=nx>meta</span><span class=p>.</span><span class=nx>RESTMapper</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+	<span class=c1>// 使用到 DiscoveryClient 生成 RESTMapper
+</span><span class=c1></span>	<span class=nx>client</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>discovery</span><span class=p>.</span><span class=nf>NewDiscoveryClientForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+	<span class=p>}</span>
+	<span class=nx>drm</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>dynamicRESTMapper</span><span class=p>{</span>
+		<span class=nx>limiter</span><span class=p>:</span> <span class=nx>rate</span><span class=p>.</span><span class=nf>NewLimiter</span><span class=p>(</span><span class=nx>rate</span><span class=p>.</span><span class=nf>Limit</span><span class=p>(</span><span class=nx>defaultRefillRate</span><span class=p>),</span> <span class=nx>defaultLimitSize</span><span class=p>),</span>
+		<span class=nx>newMapper</span><span class=p>:</span> <span class=kd>func</span><span class=p>()</span> <span class=p>(</span><span class=nx>meta</span><span class=p>.</span><span class=nx>RESTMapper</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+			<span class=c1>// 使用 DiscoveryClient 获取 APIGroupResources
+</span><span class=c1></span>			<span class=nx>groupResources</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>restmapper</span><span class=p>.</span><span class=nf>GetAPIGroupResources</span><span class=p>(</span><span class=nx>client</span><span class=p>)</span>
+			<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+				<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+			<span class=p>}</span>
+			<span class=k>return</span> <span class=nx>restmapper</span><span class=p>.</span><span class=nf>NewDiscoveryRESTMapper</span><span class=p>(</span><span class=nx>groupResources</span><span class=p>),</span> <span class=kc>nil</span>
+		<span class=p>},</span>
+	<span class=p>}</span>
+	<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>opt</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>opts</span> <span class=p>{</span>
+		<span class=k>if</span> <span class=nx>err</span> <span class=p>=</span> <span class=nf>opt</span><span class=p>(</span><span class=nx>drm</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+			<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+		<span class=p>}</span>
+	<span class=p>}</span>
+	<span class=k>if</span> <span class=p>!</span><span class=nx>drm</span><span class=p>.</span><span class=nx>lazy</span> <span class=p>{</span>
+		<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>drm</span><span class=p>.</span><span class=nf>setStaticMapper</span><span class=p>();</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+			<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+		<span class=p>}</span>
+	<span class=p>}</span>
+	<span class=k>return</span> <span class=nx>drm</span><span class=p>,</span> <span class=kc>nil</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>DiscoveryClient 服务发现示例代码：（client-go 示例代码都在 <a href=https://github.com/kubernetes/client-go/tree/v0.23.1/examples>/examples</a> 目录下）</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=p>(</span>
+	<span class=s>&#34;k8s.io/client-go/discovery&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/tools/clientcmd&#34;</span>
+    <span class=s>&#34;k8s.io/client-go/util/homedir&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+	<span class=c1>// 获取 kubeconfig 配置文件
+</span><span class=c1></span>	<span class=nx>cfg</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>clientcmd</span><span class=p>.</span><span class=nf>BuildConfigFromFlags</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>homedir</span><span class=p>.</span><span class=nf>HomeDir</span><span class=p>()</span><span class=o>+</span><span class=s>&#34;/.kube/config&#34;</span><span class=p>)</span>
+
+	<span class=c1>// 通过 kubeconfig 创建 DiscoveryClient
+</span><span class=c1></span>	<span class=nx>c</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>discovery</span><span class=p>.</span><span class=nf>NewDiscoveryClientForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+
+	<span class=c1>// 获取并打印 apiResourceList
+</span><span class=c1></span>	<span class=nx>_</span><span class=p>,</span> <span class=nx>apiResourceList</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>c</span><span class=p>.</span><span class=nf>ServerGroupsAndResources</span><span class=p>()</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=restclient>RESTClient</h3>
+<p>RESTClient 是最基础的客户端，是其他 Client 的底层实现。<a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/client.go#L81>RESTClient</a> 对标准 HTTP Request 进行了封装<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>，实现了 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/client.go#L41>rest.Interface</a> 接口定义的一组 Kubernetes REST API 操作动作 Post()、Put() 等。API 操作接口返回一个 rest.Request 引用对象，调用 *Request 的 Do() 方法执行请求。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Interface captures the set of operations for generically interacting with Kubernetes REST apis.
+</span><span class=c1></span><span class=kd>type</span> <span class=nx>Interface</span> <span class=kd>interface</span> <span class=p>{</span>
+	<span class=nf>GetRateLimiter</span><span class=p>()</span> <span class=nx>flowcontrol</span><span class=p>.</span><span class=nx>RateLimiter</span>
+	<span class=nf>Verb</span><span class=p>(</span><span class=nx>verb</span> <span class=kt>string</span><span class=p>)</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>Post</span><span class=p>()</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>Put</span><span class=p>()</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>Patch</span><span class=p>(</span><span class=nx>pt</span> <span class=nx>types</span><span class=p>.</span><span class=nx>PatchType</span><span class=p>)</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>Get</span><span class=p>()</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>Delete</span><span class=p>()</span> <span class=o>*</span><span class=nx>Request</span>
+	<span class=nf>APIVersion</span><span class=p>()</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersion</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>DiscoveryClient 使用了 RESTClient。可以追踪源码看到 DiscoveryClient 用到了 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/discovery/discovery_client.go#L508>UnversionedRESTClientForConfigAndClient()</a> 方法创建一个用于服务发现的 Client。</p>
+</blockquote>
+<p>使用 RESTClient 打印 default 命名空间下的 Pod 列表示例代码：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=p>(</span>
+	<span class=s>&#34;context&#34;</span>
+	<span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/kubernetes/scheme&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/rest&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/tools/clientcmd&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/util/homedir&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+	<span class=nx>cfg</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>clientcmd</span><span class=p>.</span><span class=nf>BuildConfigFromFlags</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>homedir</span><span class=p>.</span><span class=nf>HomeDir</span><span class=p>()</span><span class=o>+</span><span class=s>&#34;/.kube/config&#34;</span><span class=p>)</span>
+
+	<span class=c1>// 设置 API 请求基路径（api/ or apis/）
+</span><span class=c1></span>	<span class=nx>cfg</span><span class=p>.</span><span class=nx>APIPath</span> <span class=p>=</span> <span class=s>&#34;api&#34;</span>
+	<span class=c1>// 设置请求资源的 API Group 和 Version
+</span><span class=c1></span>	<span class=nx>cfg</span><span class=p>.</span><span class=nx>GroupVersion</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>v1</span><span class=p>.</span><span class=nx>SchemeGroupVersion</span>
+	<span class=c1>// 设置编解码器 coder-decoder（codec）
+</span><span class=c1></span>	<span class=c1>// 在后面 Into(obj) 中解析请求返回 body 时会用到
+</span><span class=c1></span>	<span class=nx>cfg</span><span class=p>.</span><span class=nx>NegotiatedSerializer</span> <span class=p>=</span> <span class=nx>scheme</span><span class=p>.</span><span class=nx>Codecs</span>
+	
+	<span class=c1>// 生成 RESTClient
+</span><span class=c1></span>	<span class=nx>c</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>rest</span><span class=p>.</span><span class=nf>RESTClientFor</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+
+	<span class=nx>obj</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>v1</span><span class=p>.</span><span class=nx>PodList</span><span class=p>{}</span>
+	<span class=c1>// Into 解析返回结果到 obj 中
+</span><span class=c1></span>	<span class=c1>// 打印 default 命名空间下的所有 Pod
+</span><span class=c1></span>	<span class=nx>c</span><span class=p>.</span><span class=nf>Get</span><span class=p>().</span><span class=nf>Namespace</span><span class=p>(</span><span class=s>&#34;default&#34;</span><span class=p>).</span><span class=nf>Resource</span><span class=p>(</span><span class=s>&#34;pods&#34;</span><span class=p>).</span><span class=nf>Do</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>()).</span><span class=nf>Into</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+	<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>item</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>obj</span><span class=p>.</span><span class=nx>Items</span> <span class=p>{</span>
+		<span class=nb>println</span><span class=p>(</span><span class=nx>item</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+	<span class=p>}</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=typedclient-与-clientset>TypedClient 与 ClientSet</h3>
+<p>除了直接使用 RESTClient（通常不会这么做）操作 K8s API，client-go 包还为所有 K8s 资源，通过 client-gen 二进制工具自动生成了类型安全的客户端代码，称为 Typed Client。如，appv1.Deployment 客户端代码在 client-go 包下的 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/kubernetes/typed/apps/v1/apps_client.go#L29-L41>/kubernetes/typed/apps/v1/apps_client.go</a> 下。所有资源的 Typed Client 汇总在 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/kubernetes/clientset.go#L75-L173>ClientSet</a>：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Clientset contains the clients for groups. Each group has exactly one
+</span><span class=c1>// version included in a Clientset.
+</span><span class=c1></span><span class=kd>type</span> <span class=nx>Clientset</span> <span class=kd>struct</span> <span class=p>{</span>
+    <span class=o>*</span><span class=nx>discovery</span><span class=p>.</span><span class=nx>DiscoveryClient</span>
+    <span class=c1>// ...
+</span><span class=c1></span>    <span class=nx>appsV1</span>                       <span class=o>*</span><span class=nx>appsv1</span><span class=p>.</span><span class=nx>AppsV1Client</span>
+    <span class=nx>appsV1beta1</span>                  <span class=o>*</span><span class=nx>appsv1beta1</span><span class=p>.</span><span class=nx>AppsV1beta1Client</span>
+    <span class=nx>appsV1beta2</span>                  <span class=o>*</span><span class=nx>appsv1beta2</span><span class=p>.</span><span class=nx>AppsV1beta2Client</span>
+    <span class=nx>batchV1</span>                      <span class=o>*</span><span class=nx>batchv1</span><span class=p>.</span><span class=nx>BatchV1Client</span>
+    <span class=nx>batchV1beta1</span>                 <span class=o>*</span><span class=nx>batchv1beta1</span><span class=p>.</span><span class=nx>BatchV1beta1Client</span>
+    <span class=c1>// ...
+</span><span class=c1></span><span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>因此，获取一个 apps/v1 版本的 Deployment 客户端创建 Deployment 变得很方便，结构清晰且类型安全。示例代码如下：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=p>(</span>
+	<span class=s>&#34;context&#34;</span>
+	<span class=nx>appsv1</span> <span class=s>&#34;k8s.io/api/apps/v1&#34;</span>
+	<span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+	<span class=nx>metav1</span> <span class=s>&#34;k8s.io/apimachinery/pkg/apis/meta/v1&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/kubernetes&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/tools/clientcmd&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/util/homedir&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+	<span class=nx>cfg</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>clientcmd</span><span class=p>.</span><span class=nf>BuildConfigFromFlags</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>homedir</span><span class=p>.</span><span class=nf>HomeDir</span><span class=p>()</span><span class=o>+</span><span class=s>&#34;/.kube/config&#34;</span><span class=p>)</span>
+
+	<span class=c1>// 根据 kubeconfig 创建 ClientSet
+</span><span class=c1></span>	<span class=nx>clientSet</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>kubernetes</span><span class=p>.</span><span class=nf>NewForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+
+	<span class=c1>// 调用 clientSet.AppsV1().Deployments(namespace) 返回一个 DeploymentInterface 接口对象，即 Typed Client
+</span><span class=c1></span>	<span class=c1>// DeploymentInterface 接口支持 Create、Update、Delete 等方法。
+</span><span class=c1></span>	<span class=c1>// 比如，如下 Create 需要传入一个 Deployment 对象。
+</span><span class=c1></span>	<span class=c1>// 执行代码会在 default 命名空间下创建 Nginx Deployment
+</span><span class=c1></span>	<span class=nx>clientSet</span><span class=p>.</span><span class=nf>AppsV1</span><span class=p>().</span><span class=nf>Deployments</span><span class=p>(</span><span class=s>&#34;default&#34;</span><span class=p>).</span><span class=nf>Create</span><span class=p>(</span>
+		<span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span>
+		<span class=o>&amp;</span><span class=nx>appsv1</span><span class=p>.</span><span class=nx>Deployment</span><span class=p>{</span>
+			<span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
+				<span class=nx>Name</span><span class=p>:</span>      <span class=s>&#34;nginx&#34;</span><span class=p>,</span>
+				<span class=nx>Namespace</span><span class=p>:</span> <span class=s>&#34;default&#34;</span><span class=p>,</span>
+			<span class=p>},</span>
+			<span class=nx>Spec</span><span class=p>:</span> <span class=nx>appsv1</span><span class=p>.</span><span class=nx>DeploymentSpec</span><span class=p>{</span>
+				<span class=nx>Selector</span><span class=p>:</span> <span class=o>&amp;</span><span class=nx>metav1</span><span class=p>.</span><span class=nx>LabelSelector</span><span class=p>{</span>
+					<span class=nx>MatchLabels</span><span class=p>:</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kt>string</span><span class=p>{</span>
+						<span class=s>&#34;app&#34;</span><span class=p>:</span> <span class=s>&#34;nginx&#34;</span><span class=p>,</span>
+					<span class=p>},</span>
+				<span class=p>},</span>
+				<span class=nx>Template</span><span class=p>:</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodTemplateSpec</span><span class=p>{</span>
+					<span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
+						<span class=nx>Labels</span><span class=p>:</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kt>string</span><span class=p>{</span>
+							<span class=s>&#34;app&#34;</span><span class=p>:</span> <span class=s>&#34;nginx&#34;</span><span class=p>,</span>
+						<span class=p>},</span>
+					<span class=p>},</span>
+					<span class=nx>Spec</span><span class=p>:</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodSpec</span><span class=p>{</span>
+						<span class=nx>Containers</span><span class=p>:</span> <span class=p>[]</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Container</span><span class=p>{</span>
+							<span class=p>{</span>
+								<span class=nx>Name</span><span class=p>:</span>  <span class=s>&#34;nginx&#34;</span><span class=p>,</span>
+								<span class=nx>Image</span><span class=p>:</span> <span class=s>&#34;nginx&#34;</span><span class=p>,</span>
+							<span class=p>},</span>
+						<span class=p>},</span>
+					<span class=p>},</span>
+				<span class=p>},</span>
+			<span class=p>},</span>
+		<span class=p>},</span>
+		<span class=nx>metav1</span><span class=p>.</span><span class=nx>CreateOptions</span><span class=p>{})</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=dynamicclient>DynamicClient</h3>
+<p>ClientSet 只能处理 K8s 内部资源类型，是因为这些资源数据结构已知，客户端代码是自动生成、静态的。而 DynamicClient 也是对 RESTClient 的封装，支持动态设置访问类型，既可以处理结构化数据类型，也可以处理非结构化数据类型，需要手动序列化、反序列化。</p>
+<p>以下是使用 DynamicClient 获取 default 命名空间下 Pod 列表的示例代码：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=p>(</span>
+	<span class=s>&#34;context&#34;</span>
+	<span class=s>&#34;encoding/json&#34;</span>
+	<span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+	<span class=nx>metav1</span> <span class=s>&#34;k8s.io/apimachinery/pkg/apis/meta/v1&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/dynamic&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/tools/clientcmd&#34;</span>
+	<span class=s>&#34;k8s.io/client-go/util/homedir&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+	<span class=nx>cfg</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>clientcmd</span><span class=p>.</span><span class=nf>BuildConfigFromFlags</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>homedir</span><span class=p>.</span><span class=nf>HomeDir</span><span class=p>()</span><span class=o>+</span><span class=s>&#34;/.kube/config&#34;</span><span class=p>)</span>
+
+	<span class=nx>c</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>dynamic</span><span class=p>.</span><span class=nf>NewForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+
+	<span class=nx>gvr</span> <span class=o>:=</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>SchemeGroupVersion</span><span class=p>.</span><span class=nf>WithResource</span><span class=p>(</span><span class=s>&#34;pods&#34;</span><span class=p>)</span>
+	<span class=c1>// 三个方法调用的含义是：List 指定 Namespace 下的某 Resource
+</span><span class=c1></span>	<span class=c1>// 返回结果是 Unstructured 类型（map[string]interface{}）的列表
+</span><span class=c1></span>	<span class=nx>obj</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>c</span><span class=p>.</span><span class=nf>Resource</span><span class=p>(</span><span class=nx>gvr</span><span class=p>).</span>
+		<span class=nf>Namespace</span><span class=p>(</span><span class=s>&#34;default&#34;</span><span class=p>).</span>
+		<span class=nf>List</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>{})</span>
+
+	<span class=c1>// 由于是非结构化，需要手动 marshal
+</span><span class=c1></span>	<span class=nx>data</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>obj</span><span class=p>.</span><span class=nf>MarshalJSON</span><span class=p>()</span>
+	<span class=nx>podList</span> <span class=o>:=</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodList</span><span class=p>{}</span>
+	<span class=nx>json</span><span class=p>.</span><span class=nf>Unmarshal</span><span class=p>(</span><span class=nx>data</span><span class=p>,</span> <span class=o>&amp;</span><span class=nx>podList</span><span class=p>)</span>
+	<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>item</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>podList</span><span class=p>.</span><span class=nx>Items</span> <span class=p>{</span>
+		<span class=nb>println</span><span class=p>(</span><span class=nx>item</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+	<span class=p>}</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=delegatingclient>DelegatingClient</h3>
+<p>以上三个客户端都是 go-client 提供。实际 Kubebuilder 中使用的是 controller-runtime 包下的读写分离（split）的委托客户端 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/split.go#L93>DelegatingClient</a>。DelegatingClient 底层使用的也是 RESTClient，与其他 Client 的区别是底层封装了一个 Cache，Get/List 从 Cache 中读取，写入（Create/Update/Delete）操作则直接发送给 kube-apiserver，以减轻 kube-apiserver 的压力。Cache 通过流式的 Watch 请求维护 Cache 状态更新。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>delegatingClient</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>Reader</span>
+	<span class=nx>Writer</span>
+	<span class=nx>StatusClient</span>
+
+	<span class=nx>scheme</span> <span class=o>*</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>Scheme</span>
+	<span class=nx>mapper</span> <span class=nx>meta</span><span class=p>.</span><span class=nx>RESTMapper</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/interfaces.go#L49>Reader</a> 和 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/client/interfaces.go#L62>Writer</a> 支持的统一上层接口分别为：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>Reader</span> <span class=kd>interface</span> <span class=p>{</span>
+	<span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>key</span> <span class=nx>ObjectKey</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>)</span> <span class=kt>error</span>
+	<span class=nf>List</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>list</span> <span class=nx>ObjectList</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>ListOption</span><span class=p>)</span> <span class=kt>error</span>
+<span class=p>}</span>
+
+<span class=kd>type</span> <span class=nx>Writer</span> <span class=kd>interface</span> <span class=p>{</span>
+	<span class=nf>Create</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>CreateOption</span><span class=p>)</span> <span class=kt>error</span>
+	<span class=nf>Delete</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>DeleteOption</span><span class=p>)</span> <span class=kt>error</span>
+	<span class=nf>Update</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>UpdateOption</span><span class=p>)</span> <span class=kt>error</span>
+	<span class=nf>Patch</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>,</span> <span class=nx>patch</span> <span class=nx>Patch</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>PatchOption</span><span class=p>)</span> <span class=kt>error</span>
+	<span class=nf>DeleteAllOf</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>Object</span><span class=p>,</span> <span class=nx>opts</span> <span class=o>...</span><span class=nx>DeleteAllOfOption</span><span class=p>)</span> <span class=kt>error</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=kubeconfig-文件>Kubeconfig 文件</h3>
+<p>前面的示例代码中，我们创建的 Client 都要先传入一个 Config 对象。Config 定义在 client-go 的 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/config.go#L53>rest</a> 包下，用于初始化客户端时传入通用参数，比如：kube-apiserver 地址（通常是 kubernetes.default.svc.cluster.local）、Token、TLS 认证信息、用户名等。Config 有两类：out-of-cluster config 和 in-cluster config。</p>
+<p>前者是我们使用 kubectl 时最长用到 config。你可以通过 <code>kubectl config view</code> 查看 kubectl 用于与 K8s 集群通信的配置文件信息，称为 kubeconfig 文件，默认路径在 $HOME/.kube/config 下。没有这个 kubeconfig 文件，kubectl 是无法正常访问集群。</p>
+<p>在集群环境，Pod 与 kube-apiserver 通信使用的是后者 in-cluster config。in-cluster config 记录在容器内 /var/run/secrets/kubernetes.io/serviceaccount 路径下。这个 Config 的内容会受到 Pod 绑定的 RBAC 角色权限影响。可以查看 <a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/config.go#L512>rest.InClusterConfig()</a> 源码了解 in-cluster config 是如何组装的。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl <span class=nb>exec</span> -it nginx-6799fc88d8-kwvzb -- sh
+<span class=c1># ls /var/run/secrets/kubernetes.io/serviceaccount</span>
+ca.crt	namespace  token
+</code></pre></td></tr></table>
+</div>
+</div><p>至此，我们已经介绍完 K8s API 和 Client 库，接下来我们会介绍本文抛出的 Cache 概念。</p>
+<section class=footnotes role=doc-endnotes>
+<hr>
+<ol>
+<li id=fn:1 role=doc-endnote>
+<p><a href=https://kubernetes.io/docs/reference/using-api/api-concepts/#efficient-detection-of-changes>Kubernetes API Concepts: Efficient detection of changes</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+<li id=fn:2 role=doc-endnote>
+<p><a href=https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23>Kubernetes API Reference Docs</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+<li id=fn:3 role=doc-endnote>
+<p><a href=https://zzl-code.github.io/cloudNative/k8s_client_go>k8s client_go源码解析(1) 源码结构及客户端</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+<li id=fn:4 role=doc-endnote>
+<p><a href=https://github.com/kubernetes/client-go/blob/v0.23.1/rest/request.go#L913-L1028>k8s.io/client-go/rest/request.go</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>
+</article>
+</main>
+<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
+<p class="mt-0 text-sm">
+© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
+</p>
+<p class="flex items-center mt-0">
+<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+</a>
+<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
+</a>
+</p>
+</footer>
+</body>
+</html>
