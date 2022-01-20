@@ -19,6 +19,24 @@ type Cache interface {
 }
 ```
 
+```puml
+@startuml
+namespace cache {
+    interface Cache  {
+    }
+    interface Informers  {
+        + GetInformer(ctx context.Context, obj client.Object) (Informer, error)
+        + GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (Informer, error)
+        + Start(ctx context.Context) error
+        + WaitForCacheSync(ctx context.Context) bool
+    }
+}
+"cache.Informers" *-- "cache.Cache"
+@enduml
+
+
+```
+
 ### Informer
 
 
