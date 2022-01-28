@@ -22,8 +22,8 @@ Hi Folks - K8s Operator 开发（三）：Cache 机制
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1642945415.css>
-<script defer type=text/javascript src=/minima.1642945415.js></script>
+<link rel=stylesheet href=/minima.1643378753.css>
+<script defer type=text/javascript src=/minima.1643378753.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -50,7 +50,7 @@ whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <li><a href=#indexers>Indexers</a></li>
 <li><a href=#indices>Indices</a></li>
 <li><a href=#items>Items</a></li>
-<li><a href=#增删改查>增删改查</a></li>
+<li><a href=#缓存同步>缓存同步</a></li>
 </ul>
 </li>
 </ul>
@@ -293,7 +293,7 @@ cache.SharedIndexInformer 的接口实现都包内访问（首字母是小写的
 <h3 id=items>Items</h3>
 <p>实际元素保存在 Items 中。Items 是对象的 Key 与对象实例的映射。</p>
 <p><img src=/images/k8s-operator-dev-part3-3.png alt=k8s-operator-dev-part3-3></p>
-<h3 id=增删改查>增删改查</h3>
+<h3 id=缓存同步>缓存同步</h3>
 <p>Indexer 支持对索引以及缓存元素的 CRUD。那么现在的问题是缓存的数据来源是哪？K8s 控制器不是通过 Get/List 请求直接访问 kube-apiserver，而是通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L254>ListAndWatch</a> 机制，先通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L277>List</a> 请求拿到请求资源的版本（resourceVersion），然后再发送 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L414>Watch</a> 请求，监听资源该版本之后的变化。下一篇我们详细介绍 ListAndWatch 机制。</p>
 </article>
 </main>

@@ -4,7 +4,7 @@
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta property="og:title" content="K8s Operator 开发（二）：K8s API">
 <meta property="og:description" content="K8s API Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH1 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs2。
-1 2 3 4 5 6 7 8  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=1&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
+1 2 3 4 5 6 7 8 9 10 11  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # LIST 命名空间下所有 Deployment GET /apis/apps/v1/namespaces/default/deployments # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=true&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://huanggze.github.io/posts/k8s-operator-dev-part2/"><meta property="article:section" content="posts">
 <meta property="article:published_time" content="2022-01-17T21:33:05+08:00">
@@ -12,7 +12,7 @@
 <meta name=twitter:card content="summary">
 <meta name=twitter:title content="K8s Operator 开发（二）：K8s API">
 <meta name=twitter:description content="K8s API Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH1 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs2。
-1 2 3 4 5 6 7 8  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=1&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
+1 2 3 4 5 6 7 8 9 10 11  # 创建 Deployment POST /apis/apps/v1/namespaces/{namespace}/deployments # 修改 Deployment PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name} # LIST 命名空间下所有 Deployment GET /apis/apps/v1/namespaces/default/deployments # 监听 Nginx Deployment 的增删改事件通知 GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=true&fieldSelector=metadata.name=nginx   大多数 Kubernetes 资源访问的 API 路径是 /apis/{group}/{version}/namespaces/{namespace}/{resource}/{resourceName}，比如 Deployment、Ingress 包括上一篇中的自定义资源 RebootPolicy，都有 API Group 和 Version。除了 K8s 早期的资源 Service、Node、Pod 由于历史原因，没有 API Group 只有版本（一般会称作 core API Group），路径是以 /api/v1 开头，如下图第二、三分支所示。这些常见的 K8s 数据类型都是版本化（versioned）、结构化（structured）。版本化指同一资源不同版本之间支持字段有差异；结构化指资源对象有对应的 Go 结构体，保证序列化和反序列化。URI 上使用 group、version、resource 来定位一个资源的形式称为 GVR，这和我们在 YAML 文件中使用的 apiVersion、kind 字段（又称 GVK 组合）是对应的。下一节我们会辨析 GVR、GVK 以及 Go Type 三者关系。">
 <meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
@@ -22,8 +22,8 @@ Hi Folks - K8s Operator 开发（二）：K8s API
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1642945415.css>
-<script defer type=text/javascript src=/minima.1642945415.js></script>
+<link rel=stylesheet href=/minima.1643378753.css>
+<script defer type=text/javascript src=/minima.1643378753.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -84,14 +84,17 @@ Posted at &mdash; Jan 17, 2022
 <p>Operator 通过与 kube-apiserver 通信访问 K8s 资源和自定义资源。kube-apiserver 是 Kubernetes 集群的核心组件和入口，暴露 RESTful HTTP API 接口，支持标准的 POST，GET，UPDATE，DELETE，PATCH 方法以及额外支持 WATCH<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup> 和 LIST 操作。以下是的例子，K8s API 文档可以参考 Kubernetes API Reference Docs<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span><span class=lnt>5
-</span><span class=lnt>6
-</span><span class=lnt>7
-</span><span class=lnt>8
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
 </span></code></pre></td>
 <td class=lntd>
 <pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 创建 Deployment</span>
@@ -100,8 +103,11 @@ POST /apis/apps/v1/namespaces/<span class=o>{</span>namespace<span class=o>}</sp
 <span class=c1># 修改 Deployment</span>
 PATCH /apis/apps/v1/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments/<span class=o>{</span>name<span class=o>}</span>
 
+<span class=c1># LIST 命名空间下所有 Deployment</span>
+GET /apis/apps/v1/namespaces/default/deployments
+
 <span class=c1># 监听 Nginx Deployment 的增删改事件通知</span>
-GET /apis/apps/v1/watch/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments?watch<span class=o>=</span>1<span class=p>&amp;</span><span class=nv>fieldSelector</span><span class=o>=</span>metadata.name<span class=o>=</span>nginx
+GET /apis/apps/v1/watch/namespaces/<span class=o>{</span>namespace<span class=o>}</span>/deployments?watch<span class=o>=</span>true<span class=p>&amp;</span><span class=nv>fieldSelector</span><span class=o>=</span>metadata.name<span class=o>=</span>nginx
 </code></pre></td></tr></table>
 </div>
 </div><p><img src=/images/k8s-operator-dev-part2-1.png alt=k8s-operator-dev-part2-1></p>
