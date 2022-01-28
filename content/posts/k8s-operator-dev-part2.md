@@ -17,8 +17,11 @@ POST /apis/apps/v1/namespaces/{namespace}/deployments
 # 修改 Deployment
 PATCH /apis/apps/v1/namespaces/{namespace}/deployments/{name}
 
+# LIST 命名空间下所有 Deployment
+GET /apis/apps/v1/namespaces/default/deployments
+
 # 监听 Nginx Deployment 的增删改事件通知
-GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=1&fieldSelector=metadata.name=nginx
+GET /apis/apps/v1/watch/namespaces/{namespace}/deployments?watch=true&fieldSelector=metadata.name=nginx
 ```
 
 ![k8s-operator-dev-part2-1](/images/k8s-operator-dev-part2-1.png)

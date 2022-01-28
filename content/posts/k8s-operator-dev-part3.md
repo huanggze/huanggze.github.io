@@ -133,6 +133,6 @@ Indices 是真正所谓的索引。Indices 是一组索引，每个索引记录�
 
 ![k8s-operator-dev-part3-3](/images/k8s-operator-dev-part3-3.png)
 
-### 增删改查
+### 缓存同步
 
 Indexer 支持对索引以及缓存元素的 CRUD。那么现在的问题是缓存的数据来源是哪？K8s 控制器不是通过 Get/List 请求直接访问 kube-apiserver，而是通过 [ListAndWatch](https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L254) 机制，先通过 [List](https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L277) 请求拿到请求资源的版本（resourceVersion），然后再发送 [Watch](https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L414) 请求，监听资源该版本之后的变化。下一篇我们详细介绍 ListAndWatch 机制。
