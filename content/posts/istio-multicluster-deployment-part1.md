@@ -1,5 +1,5 @@
 ---
-title: "Istio 多集群部署（一）：单一网络 + 多主架构"
+title: "Istio 多集群部署（一）：单一网络多主架构"
 date: 2022-01-28T15:28:19+08:00
 toc: true
 categories: ["Istio"]
@@ -21,7 +21,7 @@ categories: ["Istio"]
 
 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。
 
-在两个集群上，下载安装 istioctl。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。
+在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。
 
 ```bash
 curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
@@ -42,7 +42,7 @@ curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.1
 ```bash
 git clone https://ghproxy.com/https://github.com/istio/istio.git
 cd istio
-git checkout tag/1.12.2 -b 1.12.2
+git checkout tags/1.12.2 -b 1.12.2
 ```
 
 在 cluster1 机器上，创建根证书。以下命令会生成 root-cert.pem 等四个文件。
@@ -73,7 +73,7 @@ mv *.pem cluster2
 
 ### Step 2. 使用中间证书在两个集群上分别安装 Istio
 
-在 cluster1 机器上安装 Istio：
+在 cluster1 机器上安装 Istio。IstioOperator YAML 是安装配置文件。
 
 ```bash
 kubectl create namespace istio-system
