@@ -7,7 +7,7 @@
 单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。
  注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。
  多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此单网格下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver1。
-环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。">
+环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part1/"><meta property="article:section" content="posts">
 <meta property="article:published_time" content="2022-01-28T15:28:19+08:00">
@@ -18,7 +18,7 @@
 单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。
  注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。
  多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此单网格下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver1。
-环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。">
+环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.">
 <meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
@@ -28,8 +28,8 @@ Hi Folks - Istio 多集群部署（一）：单一网络多主架构
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1643465641.css>
-<script defer type=text/javascript src=/minima.1643465641.js></script>
+<link rel=stylesheet href=/minima.1643593580.css>
+<script defer type=text/javascript src=/minima.1643593580.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -82,17 +82,22 @@ Posted at &mdash; Jan 28, 2022
 </blockquote>
 <p>多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此<strong>单网格</strong>下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p>
 <h2 id=环境准备>环境准备</h2>
-<p>本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。</p>
+<p>本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。</p>
 <p>在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。</p>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
 </span></code></pre></td>
 <td class=lntd>
 <pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
+tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
+mv istioctl /usr/local/bin/
 </code></pre></td></tr></table>
 </div>
-</div><h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2>
+</div><p>最后，为了启用 kubectl 命令，拷贝一份 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p>
+<h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2>
 <p>分别在 cluster1 和 cluster2 上安装部署 Istio 控制平面，实现前面图中的架构。实践中发现，在阿里云环境部署与官方文档相比，有少许额外工作需要做，请特别注意。因此，我们不能完全按照官方文档来，要理解原理，底层逻辑都是一样的。</p>
 <h3 id=step-1-证书配置>Step 1. 证书配置</h3>
 <p>单网格、多集群架构下，主集群之间要相互建立信任。<a href=https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust>官方文档</a>提供了用于快速测试的证书配置方法：配置一个自签名的根证书，然后通过根证书为两个集群单独生成中间证书，如下图。Istio 使用中间证书安装。如果没有单独配置根证书，Istio 会默认生成自签名的 CA 证书用于签发工作负载实例的证书，导致网格隔离、不同控制平面签发的证书无法互认。另外注意，在已有 Istio 集群上测试会因为需要配置新证书而重新安装 Istio。</p>
@@ -298,7 +303,41 @@ secret 并非通过 volumemount 的形式挂载到 istiod Pod 中使用，而是
 <p>至此，单网格、单网络、多主架构已部署好。</p>
 <h2 id=测试验证>测试验证</h2>
 <p>可参考<a href=https://istio.io/latest/docs/setup/install/multicluster/verify/>官方文档</a>测试连通性。同样，如果手动分别在不同集群上直接操作，不需要 <code>--context="${CTX_CLUSTER1}"</code>。</p>
-<section class=footnotes role=doc-endnotes>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl create namespace sample
+kubectl label namespace sample istio-injection<span class=o>=</span>enabled
+kubectl apply -f samples/helloworld/helloworld.yaml -l <span class=nv>service</span><span class=o>=</span>helloworld -n sample
+
+<span class=c1># 在 cluster1 上</span>
+kubectl apply -f samples/helloworld/helloworld.yaml -l <span class=nv>version</span><span class=o>=</span>v1 -n sample
+<span class=c1># 在 cluster2 上</span>
+kubectl apply -f samples/helloworld/helloworld.yaml -l <span class=nv>version</span><span class=o>=</span>v2 -n sample
+
+kubectl apply -f samples/sleep/sleep.yaml -n sample
+kubectl <span class=nb>exec</span> -n sample -c sleep <span class=se>\
+</span><span class=se></span>    <span class=s2>&#34;</span><span class=k>$(</span>kubectl get pod -n sample -l <span class=se>\
+</span><span class=se></span>    <span class=nv>app</span><span class=o>=</span>sleep -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.items[0].metadata.name}&#39;</span><span class=k>)</span><span class=s2>&#34;</span> <span class=se>\
+</span><span class=se></span>    -- curl -sS helloworld.sample:5000/hello
+</code></pre></td></tr></table>
+</div>
+</div><section class=footnotes role=doc-endnotes>
 <hr>
 <ol>
 <li id=fn:1 role=doc-endnote>
