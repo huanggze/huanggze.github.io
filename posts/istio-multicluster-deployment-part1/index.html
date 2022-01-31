@@ -28,8 +28,8 @@ Hi Folks - Istio 多集群部署（一）：单一网络多主架构
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1643593580.css>
-<script defer type=text/javascript src=/minima.1643593580.js></script>
+<link rel=stylesheet href=/minima.1643632857.css>
+<script defer type=text/javascript src=/minima.1643632857.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -108,9 +108,13 @@ mv istioctl /usr/local/bin/
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
 </span></code></pre></td>
 <td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>git clone https://ghproxy.com/https://github.com/istio/istio.git
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>yum install git -y
+
+git clone https://ghproxy.com/https://github.com/istio/istio.git
 <span class=nb>cd</span> istio
 git checkout tags/1.12.2 -b 1.12.2
 </code></pre></td></tr></table>
