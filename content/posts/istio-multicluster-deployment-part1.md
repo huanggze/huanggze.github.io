@@ -44,6 +44,8 @@ mv istioctl /usr/local/bin/
 首先，在 cluster1 上 clone istio 代码仓库，里面包含创建证书相关的脚本：
 
 ```bash
+yum install git -y
+
 git clone https://ghproxy.com/https://github.com/istio/istio.git
 cd istio
 git checkout tags/1.12.2 -b 1.12.2

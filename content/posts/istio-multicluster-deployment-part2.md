@@ -45,9 +45,9 @@ $ kubectl logs -n istio-system istio-ingressgateway-b68f578f6-p8j4p
 2022-01-29T11:55:00.926243Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 715s ago: 14, connection error: desc = "transport: authentication handshake failed: x509: certificate signed by unknown authority"
 ```
 
-### 2. 通过 Gateway 暴露控制平面
+### 2. 通过 Gateway 暴露 Istio 控制平面
 
-在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。以下 YAML 来自 expose-istiod.yaml。
+在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。
 
 ```yaml
 apiVersion: networking.istio.io/v1alpha3

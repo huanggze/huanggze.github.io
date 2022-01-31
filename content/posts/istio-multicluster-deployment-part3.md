@@ -35,7 +35,7 @@ mv istioctl /usr/local/bin/
 
 ```bash
 kubectl create namespace istio-system
-$ kubectl create secret generic cacerts -n istio-system \
+kubectl create secret generic cacerts -n istio-system \
       --from-file=cluster1/ca-cert.pem \
       --from-file=cluster1/ca-key.pem \
       --from-file=cluster1/root-cert.pem \
@@ -85,7 +85,7 @@ istioctl install -f cluster2.yaml
 
 ### Step 3. 安装 east-west gateway 
 
-在 cluster 上安装网关来连接东西流量。网关需要公网可访问（或云厂商提供的其他更安全的外网访问方式）。
+在集群上安装网关来连接东西流量，网关的功能是作为**服务代理**。网关需要公网可访问（或云厂商提供的其他更安全的外网访问方式）。
 
 ```bash
 # 在 cluster1 上
@@ -157,7 +157,7 @@ spec:
 kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml
 ```
 
-expose-services.yaml 的内容如下。前面的 IstioOperator YAMl 是创建 gatway Pod 实例，这里的 Gateway 是配置网关规则。本示例中并未用到 egress gateway。
+expose-services.yaml 的内容如下。前面的 IstioOperator YAMl 是创建 gatway Pod 实例，这里的 Gateway 是配置网关规则。本示例中并未用到 egress gateway。其他集群通过网关访问此集群的工作负载实例。此处 Gateway 没有关联的 VirtualService。
 
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
@@ -180,17 +180,19 @@ spec:
 
 ### Step 5. 暴露 API Server
 
-需要提供 remote secret 给对方集群，以便对方集群能实现网格内所有服务的服务发现。但由于网络是隔离的，因此需要使用公网访问的 kubeconfig。可以从阿里云「连接信息」页中获得，拷贝到两边集群，命名未 c1.yaml 和 c2.yaml，然后分别执行：
+需要提供 remote secret 给对方集群，以便对方集群能实现网格内所有服务的服务发现。但由于网络是隔离的，因此需要使用公网访问的 kubeconfig。可以从阿里云「连接信息」页中获得，拷贝到两边集群，命名为 c1.yaml 和 c2.yaml，然后分别执行：
 
 ```bash
 # 在 cluster1 上
 istioctl x create-remote-secret \
-  --kubeconfig=c2.yaml | \
+  --kubeconfig=c2.yaml \
+  --name=cluster2 | \
   kubectl apply -f -
   
 # 在 cluster2 上
 istioctl x create-remote-secret \
-  --kubeconfig=c1.yaml | \
+  --kubeconfig=c1.yaml \
+  --name=cluster1 | \
   kubectl apply -f -
 ```
 
