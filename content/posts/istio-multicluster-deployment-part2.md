@@ -13,7 +13,11 @@ categories: ["Istio"]
 
 ## 部署测试
 
-参考官方文档部署即可。唯一需要注意的是，[Configure Trust
+参考官方文档部署 [Install Primary-Remote](https://istio.io/latest/docs/setup/install/multicluster/primary-remote/) 即可，前期工作与上一篇类似。有两点需要注意：
+
+### 1. 配置 CA 中间证书
+
+[Configure Trust
 ](https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust) 必不可少，需要正确配置。否则会出现证书问题，istio-ingressgateway 无法启动，报错如下：
 
 ```bash
@@ -41,4 +45,69 @@ $ kubectl logs -n istio-system istio-ingressgateway-b68f578f6-p8j4p
 2022-01-29T11:55:00.926243Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 715s ago: 14, connection error: desc = "transport: authentication handshake failed: x509: certificate signed by unknown authority"
 ```
 
-在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。
+### 2. 通过 Gateway 暴露控制平面
+
+在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。以下 YAML 来自 expose-istiod.yaml。
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway # 描述位于服务网格边缘用于接受进出网格的连接的负载均衡器
+metadata:
+  name: istiod-gateway
+spec:
+  # 关联实现负载均衡器网关的 Pods
+  selector:
+    istio: eastwestgateway
+  servers: # 网关上暴露的一组服务端口
+    - port:
+        name: tls-istiod # 端口别名
+        number: 15012 # 网关上暴露的端口号
+        protocol: tls # TLS 表示连接会使用 SNI 头部来指示目的地址用于路由
+      tls: # TLS 选项
+        mode: PASSTHROUGH # 通过 SNI 路由
+      # hosts：一个或多个由此网关暴露的、服务网格内的 host。
+      # VirtualService 必须绑定一个 Gateway，
+      # 且 VirtualService 的 host 必须与 Gateway 的至少一个 host 匹配
+      hosts:
+        - "*"
+    - port:
+        name: tls-istiodwebhook
+        number: 15017
+        protocol: tls
+      tls:
+        mode: PASSTHROUGH          
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService # 描述路由规则
+metadata:
+  name: istiod-vs
+spec:
+  hosts: # 客户端请求服务器时使用的地址名
+  - "*"
+  gateways: # 关联的 gateway
+  - istiod-gateway
+  tls: # TLS 和 HTTPS 请求的路由规则
+  - match: # 匹配规则
+    - port: 15012
+      sniHosts:
+      - "*"
+    route:
+    - destination:
+        host: istiod.istio-system.svc.cluster.local # 目标服务的真实地址
+        port:
+          number: 15012
+  - match:
+    - port: 15017
+      sniHosts:
+      - "*"
+    route:
+    - destination:
+        host: istiod.istio-system.svc.cluster.local
+        port:
+          number: 443
+```
+SNI：服务器名称指示。允许服务器在相同的IP地址和TCP端口号上呈现多个证书，并且因此允许在相同的IP地址上提供多个安全（HTTPS）网站（或其他任何基于TLS的服务），而不需要所有这些站点使用相同的证书[^1]。
+
+[^1]: [什么是 SNI？](https://www.cnblogs.com/pam-sh/p/13409492.html)

@@ -19,13 +19,17 @@ categories: ["Istio"]
 
 ## 环境准备
 
-本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。
+本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。
 
 在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。
 
 ```bash
 curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
+tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
+mv istioctl /usr/local/bin/
 ```
+
+最后，为了启用 kubectl 命令，拷贝一份 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。
 
 ## 部署 Istio 控制平面
 
@@ -157,5 +161,22 @@ istioctl x create-remote-secret \
 ## 测试验证
 
 可参考[官方文档](https://istio.io/latest/docs/setup/install/multicluster/verify/)测试连通性。同样，如果手动分别在不同集群上直接操作，不需要 `--context="${CTX_CLUSTER1}"`。
+
+```bash
+kubectl create namespace sample
+kubectl label namespace sample istio-injection=enabled
+kubectl apply -f samples/helloworld/helloworld.yaml -l service=helloworld -n sample
+
+# 在 cluster1 上
+kubectl apply -f samples/helloworld/helloworld.yaml -l version=v1 -n sample
+# 在 cluster2 上
+kubectl apply -f samples/helloworld/helloworld.yaml -l version=v2 -n sample
+
+kubectl apply -f samples/sleep/sleep.yaml -n sample
+kubectl exec -n sample -c sleep \
+    "$(kubectl get pod -n sample -l \
+    app=sleep -o jsonpath='{.items[0].metadata.name}')" \
+    -- curl -sS helloworld.sample:5000/hello
+```
 
 [^1]: [Endpoint discovery with multiple control planes](https://istio.io/latest/docs/ops/deployment/deployment-models/#endpoint-discovery-with-multiple-control-planes)
