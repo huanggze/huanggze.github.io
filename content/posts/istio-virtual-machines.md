@@ -1,7 +1,8 @@
 ---
 title: "Istio 支持虚拟机集成实践"
 date: 2022-01-29T14:52:28+08:00
-draft: true
+toc: true
+categories: ["Istio"]
 ---
 
 Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：
