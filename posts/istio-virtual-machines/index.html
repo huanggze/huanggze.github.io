@@ -2,25 +2,25 @@
 <head>
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<meta property="og:title" content="Istio 多集群部署（四）：多网络主从架构">
-<meta property="og:description" content="多网络主从架构 多网络、主从架构安装可参考官方文档 Install Primary-Remote on different networks 。主从架构中，主集群的网关不仅暴露网格内的服务，还有暴露 Istio 控制平面的作用。架构示意图如下：
-环境准备 本文使用阿里云托管 K8s 服务，在两个不同 VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。
-在两个集群上，下载安装 istioctl（1.12.2 版本）：
-1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。">
+<meta property="og:title" content="Istio 支持虚拟机集成实践">
+<meta property="og:description" content="Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：
+多网络下，Gateway 负责同时暴露 Istio 控制平面和服务网格内的服务：
+虚拟机集成 Step 1. 环境准备 本文使用阿里云，在同一 VPC 下，部署一个 K8s 托管集群以及一个 ECS 实例，模拟单网络下集成虚拟机。在 K8s 节点机器上设置以下环境变量用于后续操作，并创建工作目录 mkdir -p &#34;${WORK_DIR}&#34;。
+1 2 3 4 5 6 7 8 9 10 11  VM_APP=&#34;demo&#34; VM_NAMESPACE=&#34;vm&#34; WORK_DIR=&#34;${HOME}/vmintegration&#34; SERVICE_ACCOUNT=&#34;vm&#34; # 多网络下，K8s 集群和虚拟机所在网络分别命名，如： # CLUSTER_NETWORK=&#34;kube-network&#34; # VM_NETWORK=&#34;vm-network&#34; # 而 CLUSTER 值赋为 cluster1 CLUSTER_NETWORK=&#34;&#34; VM_NETWORK=&#34;&#34; CLUSTER=&#34;Kubernetes&#34;   Step 2. 安装 Istio 控制平面 在 K8s 集群上安装 Istio（如果集群已安装则无须安装，但仍要暴露 Istio 控制平面）：">
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part4/"><meta property="article:section" content="posts">
-<meta property="article:published_time" content="2022-01-31T11:16:04+08:00">
-<meta property="article:modified_time" content="2022-01-31T11:16:04+08:00">
+<meta property="og:url" content="https://huanggze.github.io/posts/istio-virtual-machines/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-01-29T14:52:28+08:00">
+<meta property="article:modified_time" content="2022-01-29T14:52:28+08:00">
 <meta name=twitter:card content="summary">
-<meta name=twitter:title content="Istio 多集群部署（四）：多网络主从架构">
-<meta name=twitter:description content="多网络主从架构 多网络、主从架构安装可参考官方文档 Install Primary-Remote on different networks 。主从架构中，主集群的网关不仅暴露网格内的服务，还有暴露 Istio 控制平面的作用。架构示意图如下：
-环境准备 本文使用阿里云托管 K8s 服务，在两个不同 VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。
-在两个集群上，下载安装 istioctl（1.12.2 版本）：
-1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。">
+<meta name=twitter:title content="Istio 支持虚拟机集成实践">
+<meta name=twitter:description content="Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：
+多网络下，Gateway 负责同时暴露 Istio 控制平面和服务网格内的服务：
+虚拟机集成 Step 1. 环境准备 本文使用阿里云，在同一 VPC 下，部署一个 K8s 托管集群以及一个 ECS 实例，模拟单网络下集成虚拟机。在 K8s 节点机器上设置以下环境变量用于后续操作，并创建工作目录 mkdir -p &#34;${WORK_DIR}&#34;。
+1 2 3 4 5 6 7 8 9 10 11  VM_APP=&#34;demo&#34; VM_NAMESPACE=&#34;vm&#34; WORK_DIR=&#34;${HOME}/vmintegration&#34; SERVICE_ACCOUNT=&#34;vm&#34; # 多网络下，K8s 集群和虚拟机所在网络分别命名，如： # CLUSTER_NETWORK=&#34;kube-network&#34; # VM_NETWORK=&#34;vm-network&#34; # 而 CLUSTER 值赋为 cluster1 CLUSTER_NETWORK=&#34;&#34; VM_NETWORK=&#34;&#34; CLUSTER=&#34;Kubernetes&#34;   Step 2. 安装 Istio 控制平面 在 K8s 集群上安装 Istio（如果集群已安装则无须安装，但仍要暴露 Istio 控制平面）：">
 <meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
-Hi Folks - Istio 多集群部署（四）：多网络主从架构
+Hi Folks - Istio 支持虚拟机集成实践
 </title>
 <link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
@@ -48,93 +48,68 @@ whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
-<li><a href=#多网络主从架构>多网络主从架构</a></li>
-<li><a href=#环境准备>环境准备</a></li>
-<li><a href=#部署-istio-控制平面>部署 Istio 控制平面</a>
+<li><a href=#虚拟机集成>虚拟机集成</a>
 <ul>
-<li><a href=#step-1-证书配置>Step 1. 证书配置</a></li>
-<li><a href=#step-2-使用中间证书在-cluster1-上安装-istiod>Step 2. 使用中间证书在 cluster1 上安装 Istiod</a></li>
-<li><a href=#step-3-在-cluster1-上安装-east-west-gateway>Step 3. 在 cluster1 上安装 east-west gateway</a></li>
-<li><a href=#step-4-通过-cluster1-的-easy-west-gateway-暴露-istio-控制平面和集群内服务>Step 4. 通过 cluster1 的 easy-west gateway 暴露 Istio 控制平面和集群内服务</a></li>
-<li><a href=#step-5-暴露-cluster2-的-api-server-给-cluster1>Step 5. 暴露 cluster2 的 API Server 给 cluster1</a></li>
-<li><a href=#step-6-cluster2-作为从集群安装>Step 6. cluster2 作为从集群安装</a></li>
-<li><a href=#step-7-在-cluster2-上安装-east-west-gateway并暴露集群内的服务>Step 7. 在 cluster2 上安装 east-west gateway，并暴露集群内的服务</a></li>
+<li><a href=#step-1-环境准备>Step 1. 环境准备</a></li>
+<li><a href=#step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</a></li>
+<li><a href=#step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</a></li>
+<li><a href=#step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</a></li>
+<li><a href=#step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</a></li>
+<li><a href=#step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</a></li>
+<li><a href=#step-6-配置虚拟机>Step 6. 配置虚拟机</a></li>
+<li><a href=#step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</a></li>
 </ul>
 </li>
-<li><a href=#测试验证>测试验证</a></li>
-<li><a href=#总结>总结</a></li>
 </ul>
 </nav>
 </div>
 </details>
-<h1 class="mt-6 mb-6">Istio 多集群部署（四）：多网络主从架构</h1>
+<h1 class="mt-6 mb-6">Istio 支持虚拟机集成实践</h1>
 <div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
-Posted at &mdash; Jan 31, 2022
+Posted at &mdash; Jan 29, 2022
 </div>
 </div>
 <main>
 <p></p>
 <article class=md>
-<h2 id=多网络主从架构>多网络主从架构</h2>
-<p>多网络、主从架构安装可参考官方文档 <a href=https://istio.io/latest/docs/setup/install/multicluster/primary-remote_multi-network/>Install Primary-Remote on different networks
-</a>。主从架构中，主集群的网关不仅暴露网格内的服务，还有暴露 Istio 控制平面的作用。架构示意图如下：</p>
-<p><img src=/images/istio-multicluster-deployment-part4-1.svg alt=istio-multicluster-deployment-part4-1></p>
-<h2 id=环境准备>环境准备</h2>
-<p>本文使用阿里云托管 K8s 服务，在两个<strong>不同</strong> VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。</p>
-<p>在两个集群上，下载安装 istioctl（1.12.2 版本）：</p>
+<p>Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：</p>
+<p><img src=/images/istio-virtual-machines-1.svg alt=istio-virtual-machines-1></p>
+<p>多网络下，Gateway 负责同时暴露 Istio 控制平面和服务网格内的服务：</p>
+<p><img src=/images/istio-virtual-machines-2.svg alt=istio-virtual-machines-2></p>
+<h2 id=虚拟机集成>虚拟机集成</h2>
+<h3 id=step-1-环境准备>Step 1. 环境准备</h3>
+<p>本文使用阿里云，在同一 VPC 下，部署一个 K8s 托管集群以及一个 ECS 实例，模拟单网络下集成虚拟机。在 K8s 节点机器上设置以下环境变量用于后续操作，并创建工作目录 <code>mkdir -p "${WORK_DIR}"</code>。</p>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
 </span></code></pre></td>
 <td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
-tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
-mv istioctl /usr/local/bin/
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nv>VM_APP</span><span class=o>=</span><span class=s2>&#34;demo&#34;</span>
+<span class=nv>VM_NAMESPACE</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
+<span class=nv>WORK_DIR</span><span class=o>=</span><span class=s2>&#34;</span><span class=si>${</span><span class=nv>HOME</span><span class=si>}</span><span class=s2>/vmintegration&#34;</span>
+<span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
+<span class=c1># 多网络下，K8s 集群和虚拟机所在网络分别命名，如：</span>
+<span class=c1># CLUSTER_NETWORK=&#34;kube-network&#34;</span>
+<span class=c1># VM_NETWORK=&#34;vm-network&#34;</span>
+<span class=c1># 而 CLUSTER 值赋为 cluster1</span>
+<span class=nv>CLUSTER_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
+<span class=nv>VM_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
+<span class=nv>CLUSTER</span><span class=o>=</span><span class=s2>&#34;Kubernetes&#34;</span>
 </code></pre></td></tr></table>
 </div>
-</div><p>最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p>
-<h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2>
-<h3 id=step-1-证书配置>Step 1. 证书配置</h3>
-<p>配置根证书、中间证书的方式和第一篇文章一样。只不过 cluster2 的中间证书需要手动拷贝到 cluster2 集群。这是因为两个集群不在一个内网、网络隔离，无法像第一篇一样通过 scp 和内网地址传输 cluster2 的中间证书。</p>
-<p>安装 cacerts 密钥（以 cluster1 为例）：</p>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span><span class=lnt>5
-</span><span class=lnt>6
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl create namespace istio-system
-kubectl create secret generic cacerts -n istio-system <span class=se>\
-</span><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-cert.pem <span class=se>\
-</span><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-key.pem <span class=se>\
-</span><span class=se></span>      --from-file<span class=o>=</span>cluster1/root-cert.pem <span class=se>\
-</span><span class=se></span>      --from-file<span class=o>=</span>cluster1/cert-chain.pem
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-2-使用中间证书在-cluster1-上安装-istiod>Step 2. 使用中间证书在 cluster1 上安装 Istiod</h3>
-<p>给 istio-system 命名空间打上网络拓扑标签：</p>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 在 cluster1 上</span>
-kubectl label namespace istio-system topology.istio.io/network<span class=o>=</span>network1
-<span class=c1># 在 cluster2 上</span>
-kubectl label namespace istio-system topology.istio.io/network<span class=o>=</span>network2
-</code></pre></td></tr></table>
-</div>
-</div><p>在 cluster1 主集群上安装 Istiod：</p>
+</div><h3 id=step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</h3>
+<p>在 K8s 集群上安装 Istio（如果集群已安装则无须安装，但仍要暴露 Istio 控制平面）：</p>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
@@ -149,44 +124,39 @@ kubectl label namespace istio-system topology.istio.io/network<span class=o>=</s
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
 </span></code></pre></td>
 <td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>cat <span class=s>&lt;&lt;EOF &gt; cluster1.yaml
-</span><span class=s>apiVersion: install.istio.io/v1alpha1
-</span><span class=s>kind: IstioOperator
-</span><span class=s>spec:
-</span><span class=s>  values:
-</span><span class=s>    global:
-</span><span class=s>      meshID: mesh1
-</span><span class=s>      multiCluster:
-</span><span class=s>        clusterName: cluster1
-</span><span class=s>      network: network1
-</span><span class=s>EOF</span>
-istioctl install -f cluster1.yaml
-</code></pre></td></tr></table>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=l>cat &lt;&lt;EOF &gt; ./vm-cluster.yaml</span><span class=w>
+</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
+</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w>
+</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istio</span><span class=w>
+</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span><span class=nt>global</span><span class=p>:</span><span class=w>
+</span><span class=w>      </span><span class=nt>meshID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span><span class=w>      </span><span class=nt>multiCluster</span><span class=p>:</span><span class=w>
+</span><span class=w>        </span><span class=nt>clusterName</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER}&#34;</span><span class=w>
+</span><span class=w>      </span><span class=nt>network</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER_NETWORK}&#34;</span><span class=w>
+</span><span class=w></span><span class=l>EOF</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=l>istioctl install -f vm-cluster.yaml</span><span class=w>
+</span></code></pre></td></tr></table>
 </div>
-</div><h3 id=step-3-在-cluster1-上安装-east-west-gateway>Step 3. 在 cluster1 上安装 east-west gateway</h3>
-<p>安装 east-west gateway，并记下 gateway 的 IP 地址：</p>
+</div><h3 id=step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</h3>
+<p>通过 IstioOperator YAML 安装 east-west gateway：</p>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span><span class=lnt>5
-</span><span class=lnt>6
 </span></code></pre></td>
 <td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nb>cd</span> istio
-samples/multicluster/gen-eastwest-gateway.sh --network network1 <span class=p>|</span> <span class=se>\
-</span><span class=se></span>    istioctl install -y -f -
-    
-<span class=c1># 记下 gateway 的公网 IP 地址</span>
-kubectl get svc -n istio-system  istio-eastwestgateway -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.status.loadBalancer.ingress[0].ip}&#39;</span>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>samples/multicluster/gen-eastwest-gateway.sh --single-cluster <span class=p>|</span> istioctl install -y -f -
 </code></pre></td></tr></table>
 </div>
-</div><p>gen-eastwest-gateway.sh 脚本生成的 gateway 安装配置文件如下：</p>
-<div class=highlight><div class=chroma>
+</div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -221,13 +191,6 @@ kubectl get svc -n istio-system  istio-eastwestgateway -o <span class=nv>jsonpat
 </span><span class=lnt>31
 </span><span class=lnt>32
 </span><span class=lnt>33
-</span><span class=lnt>34
-</span><span class=lnt>35
-</span><span class=lnt>36
-</span><span class=lnt>37
-</span><span class=lnt>38
-</span><span class=lnt>39
-</span><span class=lnt>40
 </span></code></pre></td>
 <td class=lntd>
 <pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
@@ -243,13 +206,8 @@ kubectl get svc -n istio-system  istio-eastwestgateway -o <span class=nv>jsonpat
 </span><span class=w>        </span><span class=nt>label</span><span class=p>:</span><span class=w>
 </span><span class=w>          </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
 </span><span class=w>          </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>istio-eastwestgateway</span><span class=w>
-</span><span class=w>          </span><span class=nt>topology.istio.io/network</span><span class=p>:</span><span class=w> </span><span class=l>network1</span><span class=w>
 </span><span class=w>        </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
 </span><span class=w>        </span><span class=nt>k8s</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>env</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=c># traffic through this gateway should be routed inside the network</span><span class=w>
-</span><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>ISTIO_META_REQUESTED_NETWORK_VIEW</span><span class=w>
-</span><span class=w>              </span><span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=l>network1</span><span class=w>
 </span><span class=w>          </span><span class=nt>service</span><span class=p>:</span><span class=w>
 </span><span class=w>            </span><span class=nt>ports</span><span class=p>:</span><span class=w>
 </span><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>status-port</span><span class=w>
@@ -268,24 +226,22 @@ kubectl get svc -n istio-system  istio-eastwestgateway -o <span class=nv>jsonpat
 </span><span class=w>    </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
 </span><span class=w>      </span><span class=nt>istio-ingressgateway</span><span class=p>:</span><span class=w>
 </span><span class=w>        </span><span class=nt>injectionTemplate</span><span class=p>:</span><span class=w> </span><span class=l>gateway</span><span class=w>
-</span><span class=w>    </span><span class=nt>global</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>network</span><span class=p>:</span><span class=w> </span><span class=l>network1</span><span class=w>
 </span></code></pre></td></tr></table>
 </div>
-</div><h3 id=step-4-通过-cluster1-的-easy-west-gateway-暴露-istio-控制平面和集群内服务>Step 4. 通过 cluster1 的 easy-west gateway 暴露 Istio 控制平面和集群内服务</h3>
-<p>可以看到，前一步安装的 Istio ingress gateway 在这一步被两个 Gateway YAML 配置文件使用。一个 Gateway YAML 负责暴露 Istiod，一个负责暴露集群内的服务。</p>
+</div><h3 id=step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</h3>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
+</span><span class=lnt>3
 </span></code></pre></td>
 <td class=lntd>
 <pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl apply -n istio-system -f samples/multicluster/expose-istiod.yaml
-kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml
+<span class=c1># 多网络部署多以下步骤</span>
+<span class=c1># kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml</span>
 </code></pre></td></tr></table>
 </div>
-</div><p>expose-istiod.yaml 的内容如下：</p>
-<div class=highlight><div class=chroma>
+</div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -397,210 +353,228 @@ kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml
 </span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>443</span><span class=w>
 </span></code></pre></td></tr></table>
 </div>
-</div><p>expose-services.yaml 的内容如下：</p>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
-</span><span class=lnt> 2
-</span><span class=lnt> 3
-</span><span class=lnt> 4
-</span><span class=lnt> 5
-</span><span class=lnt> 6
-</span><span class=lnt> 7
-</span><span class=lnt> 8
-</span><span class=lnt> 9
-</span><span class=lnt>10
-</span><span class=lnt>11
-</span><span class=lnt>12
-</span><span class=lnt>13
-</span><span class=lnt>14
-</span><span class=lnt>15
-</span><span class=lnt>16
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cross-network-gateway</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TLS</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>AUTO_PASSTHROUGH</span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*.local&#34;</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h3 id=step-5-暴露-cluster2-的-api-server-给-cluster1>Step 5. 暴露 cluster2 的 API Server 给 cluster1</h3>
-<p>需要提供 cluster2 集群 kubeconfig 作为 remote secret 给集群 cluster1，以便 cluster1 能实现网格内所有服务的服务发现。但由于网络是隔离的，因此需要使用 cluster2 的公网访问 kubeconfig。可以从阿里云「连接信息」页中获得，拷贝到 cluster1，命名为 c2.yaml，然后执行（注意 &ndash;name 标志一定要带上）：</p>
+</div><h3 id=step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</h3>
 <div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
 </span></code></pre></td>
 <td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>istioctl x create-remote-secret <span class=se>\
-</span><span class=se></span>  --kubeconfig<span class=o>=</span>c2.yaml <span class=se>\
-</span><span class=se></span>  --name<span class=o>=</span>cluster2 <span class=p>|</span> <span class=se>\
-</span><span class=se></span>  kubectl apply -f -
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl create namespace <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
+kubectl create serviceaccount <span class=s2>&#34;</span><span class=si>${</span><span class=nv>SERVICE_ACCOUNT</span><span class=si>}</span><span class=s2>&#34;</span> -n <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
 </code></pre></td></tr></table>
 </div>
-</div><h3 id=step-6-cluster2-作为从集群安装>Step 6. cluster2 作为从集群安装</h3>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
-</span><span class=lnt> 2
-</span><span class=lnt> 3
-</span><span class=lnt> 4
-</span><span class=lnt> 5
-</span><span class=lnt> 6
-</span><span class=lnt> 7
-</span><span class=lnt> 8
-</span><span class=lnt> 9
-</span><span class=lnt>10
-</span><span class=lnt>11
-</span><span class=lnt>12
-</span><span class=lnt>13
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>cat <span class=s>&lt;&lt;EOF &gt; cluster2.yaml
-</span><span class=s>apiVersion: install.istio.io/v1alpha1
-</span><span class=s>kind: IstioOperator
-</span><span class=s>spec:
-</span><span class=s>  values:
-</span><span class=s>    global:
-</span><span class=s>      meshID: mesh1
-</span><span class=s>      multiCluster:
-</span><span class=s>        clusterName: cluster2
-</span><span class=s>      network: network2
-</span><span class=s>      remotePilotAddress: ${DISCOVERY_ADDRESS} # 这里填刚才记下的 cluster1 east-west gateway 地址
-</span><span class=s>EOF</span>
-istioctl install -f cluster2.yaml
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-7-在-cluster2-上安装-east-west-gateway并暴露集群内的服务>Step 7. 在 cluster2 上安装 east-west gateway，并暴露集群内的服务</h3>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span><span class=lnt>5
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>samples/multicluster/gen-eastwest-gateway.sh --network network2 <span class=p>|</span> <span class=se>\
-</span><span class=se></span>    istioctl install -y -f -
-
-kubectl apply -n istio-system -f <span class=se>\
-</span><span class=se></span>    samples/multicluster/expose-services.yaml
-</code></pre></td></tr></table>
-</div>
-</div><p>expose-services.yaml 的内容和 cluster1 的步骤一样：</p>
-<div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
-</span><span class=lnt> 2
-</span><span class=lnt> 3
-</span><span class=lnt> 4
-</span><span class=lnt> 5
-</span><span class=lnt> 6
-</span><span class=lnt> 7
-</span><span class=lnt> 8
-</span><span class=lnt> 9
-</span><span class=lnt>10
-</span><span class=lnt>11
-</span><span class=lnt>12
-</span><span class=lnt>13
-</span><span class=lnt>14
-</span><span class=lnt>15
-</span><span class=lnt>16
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cross-network-gateway</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TLS</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>AUTO_PASSTHROUGH</span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*.local&#34;</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h2 id=测试验证>测试验证</h2>
-<p>同前文。</p>
-<h2 id=总结>总结</h2>
-<p>在实践四种方式安装多集群时，踩来不少坑，总结出以下几点需要注意：</p>
+</div><h3 id=step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</h3>
+<p>通过 <code>istioctl x workload entry</code> 命令生成虚拟机应用（workload instance）的配置文件。该命令会生成五个文件：</p>
 <ol>
-<li>一定要按官方文档的操作顺序来。否则 Istio 相关的 Pod 会起不来。比如中间重新生成了密钥，这时候得从头安装 Istio；</li>
-<li><code>kubectl create secret</code> 如果 from-file 的文件有问题，创建 secret 的时候不会报错的。所以要格外小心。</li>
+<li>cluster.env：包含一些元信息，如：流量入口的端口号、虚拟机对应的 serviceaccount 和 namespace；</li>
+<li>istio-token：JWT token，用于从 CA 获取证书；</li>
+<li>mesh.yaml</li>
+<li>root-cert.pem：用于认证的根证书；</li>
+<li>hosts：包含 Istiod 的地址。</li>
 </ol>
-<table>
-<thead>
-<tr>
-<th style=text-align:center>部署方案</th>
-<th style=text-align:center>同一CA签发证书</th>
-<th style=text-align:center>网络拓扑标签</th>
-<th style=text-align:center>安装east-west gateway</th>
-<th style=text-align:center>暴露 Istiod</th>
-<th style=text-align:center>暴露网格服务</th>
-<th style=text-align:center>暴露 API Server</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style=text-align:center>单网络多主</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>✅</td>
-</tr>
-<tr>
-<td style=text-align:center>单网络主从</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>主集群✅</td>
-<td style=text-align:center>主集群✅</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>从集群✅</td>
-</tr>
-<tr>
-<td style=text-align:center>多网络多主</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>-</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>✅</td>
-</tr>
-<tr>
-<td style=text-align:center>多网络主从</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>主集群✅</td>
-<td style=text-align:center>✅</td>
-<td style=text-align:center>从集群✅</td>
-</tr>
-</tbody>
-</table>
-<p>✅：表示该步骤与所有集群都相关</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>cat <span class=s>&lt;&lt;EOF &gt; workloadgroup.yaml
+</span><span class=s>apiVersion: networking.istio.io/v1alpha3
+</span><span class=s>kind: WorkloadGroup
+</span><span class=s>metadata:
+</span><span class=s>  name: &#34;${VM_APP}&#34;
+</span><span class=s>  namespace: &#34;${VM_NAMESPACE}&#34;
+</span><span class=s>spec:
+</span><span class=s>  metadata:
+</span><span class=s>    labels:
+</span><span class=s>      app: &#34;${VM_APP}&#34;
+</span><span class=s>  template:
+</span><span class=s>    serviceAccount: &#34;${SERVICE_ACCOUNT}&#34;
+</span><span class=s>    network: &#34;${VM_NETWORK}&#34;
+</span><span class=s>EOF</span>
+
+istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34;</span><span class=si>${</span><span class=nv>WORK_DIR</span><span class=si>}</span><span class=s2>&#34;</span> --clusterID <span class=s2>&#34;</span><span class=si>${</span><span class=nv>CLUSTER</span><span class=si>}</span><span class=s2>&#34;</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>cluster.env 的内容如下：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nv>CANONICAL_REVISION</span><span class=o>=</span><span class=s1>&#39;latest&#39;</span>
+<span class=nv>CANONICAL_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
+<span class=nv>ISTIO_INBOUND_PORTS</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
+<span class=nv>ISTIO_LOCAL_EXCLUDE_PORTS</span><span class=o>=</span><span class=s1>&#39;15090,15021,15020&#39;</span>
+<span class=nv>ISTIO_METAJSON_LABELS</span><span class=o>=</span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span>
+<span class=nv>ISTIO_META_CLUSTER_ID</span><span class=o>=</span><span class=s1>&#39;Kubernetes&#39;</span>
+<span class=nv>ISTIO_META_DNS_CAPTURE</span><span class=o>=</span><span class=s1>&#39;true&#39;</span>
+<span class=nv>ISTIO_META_MESH_ID</span><span class=o>=</span><span class=s1>&#39;mesh1&#39;</span>
+<span class=nv>ISTIO_META_NETWORK</span><span class=o>=</span><span class=s1>&#39;&#39;</span>
+<span class=nv>ISTIO_META_WORKLOAD_NAME</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
+<span class=nv>ISTIO_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+<span class=nv>ISTIO_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo.vm&#39;</span>
+<span class=nv>ISTIO_SERVICE_CIDR</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
+<span class=nv>POD_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+<span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+<span class=nv>TRUST_DOMAIN</span><span class=o>=</span><span class=s1>&#39;cluster.local&#39;</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>mesh.yaml 的内容如下：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>defaultConfig</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>discoveryAddress</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc:15012</span><span class=w>
+</span><span class=w>  </span><span class=nt>meshId</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span><span class=w>  </span><span class=nt>proxyMetadata</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span><span class=nt>CANONICAL_REVISION</span><span class=p>:</span><span class=w> </span><span class=l>latest</span><span class=w>
+</span><span class=w>    </span><span class=nt>CANONICAL_SERVICE</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_META_CLUSTER_ID</span><span class=p>:</span><span class=w> </span><span class=l>Kubernetes</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_META_DNS_CAPTURE</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_META_MESH_ID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_META_NETWORK</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&#34;</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_META_WORKLOAD_NAME</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span><span class=w>    </span><span class=nt>ISTIO_METAJSON_LABELS</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span><span class=w>
+</span><span class=w>    </span><span class=nt>POD_NAMESPACE</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
+</span><span class=w>    </span><span class=nt>SERVICE_ACCOUNT</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
+</span><span class=w>    </span><span class=nt>TRUST_DOMAIN</span><span class=p>:</span><span class=w> </span><span class=l>cluster.local</span><span class=w>
+</span><span class=w>  </span><span class=nt>tracing</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span><span class=nt>zipkin</span><span class=p>:</span><span class=w>
+</span><span class=w>      </span><span class=nt>address</span><span class=p>:</span><span class=w> </span><span class=l>zipkin.istio-system:9411</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>hosts 包含 Istiod 的地址：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-text data-lang=text>8.134.&lt;xxx&gt;.&lt;xxx&gt; istiod.istio-system.svc
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=step-6-配置虚拟机>Step 6. 配置虚拟机</h3>
+<p>将前面生成的配置，从 K8s 集群节点机器上，传输到要加入服务网格的虚拟机上。然后依次将配置文件安装到虚拟机上：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 首先，将根证书安装到 /etc/certs 目录下</span>
+mkdir -p /etc/certs
+cp root-cert.pem /etc/certs/root-cert.pem
+
+<span class=c1># 接着，将 istio-token 安装到 /var/run/secrets/tokens 目录下</span>
+mkdir -p /var/run/secrets/tokens
+cp istio-token /var/run/secrets/tokens/istio-token
+
+<span class=c1># 然后，将 cluster.env 安装到 /var/lib/istio/envoy/ 目录下</span>
+cp cluster.env /var/lib/istio/envoy/cluster.env
+
+<span class=c1># 将 mesh 配置文件安装到 /etc/istio/config/ 目录下，并重命名为 mesh</span>
+cp mesh.yaml /etc/istio/config/mesh
+
+<span class=c1># 最后，更新 hosts 文件</span>
+cat hosts &gt;&gt; /etc/hosts
+</code></pre></td></tr></table>
+</div>
+</div><p>并将 /etc/certs/ 等目录的所有者设置为 istio-proxy：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>mkdir -p /etc/istio/proxy
+chown -R istio-proxy /var/lib/istio /etc/certs /etc/istio/proxy /etc/istio/config /var/run/secrets /etc/certs/root-cert.pem
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</h3>
+<p>因阿里云 ECS 的操作系统 Alibaba Cloud Linux 是基于 CentOS 的，因此选择 CentOS 8 的安装包：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -LO https://storage.googleapis.com/istio-release/releases/1.12.2/rpm/istio-sidecar.rpm
+rpm -i istio-sidecar.rpm
+</code></pre></td></tr></table>
+</div>
+</div><p>运行 Istio agent：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>systemctl start istio
+</code></pre></td></tr></table>
+</div>
+</div><p>检查是否安装成功 <code>cat /var/log/istio/istio.log</code>，日志中无 failed 字样。至此，可以访问 K8s 服务网格中的 Service，如：<code>curl helloworld.sample.svc:5000/hello</code>。</p>
 </article>
 </main>
 <script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
