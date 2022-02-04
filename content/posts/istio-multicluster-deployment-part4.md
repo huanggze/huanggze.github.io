@@ -77,8 +77,7 @@ istioctl install -f cluster1.yaml
 
 ```bash
 cd istio
-samples/multicluster/gen-eastwest-gateway.sh \
-    --mesh mesh1 --cluster cluster1 --network network1 | \
+samples/multicluster/gen-eastwest-gateway.sh --network network1 | \
     istioctl install -y -f -
     
 # 记下 gateway 的公网 IP 地址
@@ -249,8 +248,7 @@ istioctl install -f cluster2.yaml
 ### Step 7. 在 cluster2 上安装 east-west gateway，并暴露集群内的服务
 
 ```bash
-samples/multicluster/gen-eastwest-gateway.sh \
-    --mesh mesh1 --cluster cluster2 --network network2 | \
+samples/multicluster/gen-eastwest-gateway.sh --network network2 | \
     istioctl install -y -f -
 
 kubectl apply -n istio-system -f \

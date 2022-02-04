@@ -89,13 +89,11 @@ istioctl install -f cluster2.yaml
 
 ```bash
 # 在 cluster1 上
-samples/multicluster/gen-eastwest-gateway.sh \
-    --mesh mesh1 --cluster cluster1 --network network1 | \
+samples/multicluster/gen-eastwest-gateway.sh --network network1 | \
     istioctl install -y -f -
 
 # 在 cluster2 上    
-samples/multicluster/gen-eastwest-gateway.sh \
-    --mesh mesh1 --cluster cluster2 --network network2 | \
+samples/multicluster/gen-eastwest-gateway.sh --network network2 | \
     istioctl install -y -f -
 ```
 东西流量（East-west traffic）：客户端和服务器之间的流量，即 server-client 流量；
