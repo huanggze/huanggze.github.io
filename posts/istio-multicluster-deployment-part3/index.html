@@ -26,8 +26,8 @@ Hi Folks - Istio 多集群部署（三）：多网络多主架构
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1643632857.css>
-<script defer type=text/javascript src=/minima.1643632857.js></script>
+<link rel=stylesheet href=/minima.1643985513.css>
+<script defer type=text/javascript src=/minima.1643985513.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -198,18 +198,14 @@ istioctl install -f cluster2.yaml
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span><span class=lnt>8
-</span><span class=lnt>9
 </span></code></pre></td>
 <td class=lntd>
 <pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 在 cluster1 上</span>
-samples/multicluster/gen-eastwest-gateway.sh <span class=se>\
-</span><span class=se></span>    --mesh mesh1 --cluster cluster1 --network network1 <span class=p>|</span> <span class=se>\
+samples/multicluster/gen-eastwest-gateway.sh --network network1 <span class=p>|</span> <span class=se>\
 </span><span class=se></span>    istioctl install -y -f -
 
 <span class=c1># 在 cluster2 上    </span>
-samples/multicluster/gen-eastwest-gateway.sh <span class=se>\
-</span><span class=se></span>    --mesh mesh1 --cluster cluster2 --network network2 <span class=p>|</span> <span class=se>\
+samples/multicluster/gen-eastwest-gateway.sh --network network2 <span class=p>|</span> <span class=se>\
 </span><span class=se></span>    istioctl install -y -f -
 </code></pre></td></tr></table>
 </div>
