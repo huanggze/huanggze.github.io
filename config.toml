@@ -6,7 +6,7 @@ googleAnalytics = ""
 
 # paginate decides the number of the newest posts
 # that'll be shown on the home page.
-paginate = 6
+paginate = 10
 
 # theme is the name of the hugo theme you're gonna use,
 # `hugo-theme-minima` is put here only for debuging,
