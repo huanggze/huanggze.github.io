@@ -47,7 +47,7 @@ $ kubectl logs -n istio-system istio-ingressgateway-b68f578f6-p8j4p
 
 ### 2. 通过 Gateway 暴露 Istio 控制平面
 
-在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。
+在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。Gateway 本质上是一个运行在网格边缘的 Envoy proxy。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。
 
 > 为什么单网络 pod 间可以直接通信还要通过 Gateway 暴露 Istio 控制平面？\
 > 为了启动时有稳定的 IP 地址用于连接。如 [Configure cluster2 as a remote](https://www.plantuml.com/plantuml/png/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80) 需要设置固定的地址参数 remotePilotAddress。
