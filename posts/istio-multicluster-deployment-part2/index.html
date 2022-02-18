@@ -26,8 +26,8 @@ Hi Folks - Istio 多集群部署（二）：单一网络主从架构
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1644027359.css>
-<script defer type=text/javascript src=/minima.1644027359.js></script>
+<link rel=stylesheet href=/minima.1645190987.css>
+<script defer type=text/javascript src=/minima.1645190987.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -127,7 +127,7 @@ Events:
 </code></pre></td></tr></table>
 </div>
 </div><h3 id=2-通过-gateway-暴露-istio-控制平面>2. 通过 Gateway 暴露 Istio 控制平面</h3>
-<p>在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。</p>
+<p>在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。Gateway 本质上是一个运行在网格边缘的 Envoy proxy。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。</p>
 <blockquote>
 <p>为什么单网络 pod 间可以直接通信还要通过 Gateway 暴露 Istio 控制平面？<br>
 为了启动时有稳定的 IP 地址用于连接。如 <a href=https://www.plantuml.com/plantuml/png/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80>Configure cluster2 as a remote</a> 需要设置固定的地址参数 remotePilotAddress。</p>
