@@ -74,8 +74,6 @@ kind: ServiceEntry
 metadata:
   name: my-server-se
 spec:
-  addresses:
-  - 192.168.0.78/32
   endpoints:
   - address: 192.168.0.78
   hosts:
