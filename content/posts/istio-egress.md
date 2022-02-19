@@ -133,7 +133,7 @@ spec:
   - hosts:
     - my.server.com
     port:
-      name: my-server
+      name: http
       number: 2234
       protocol: TCP
 EOF
