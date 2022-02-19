@@ -1,0 +1,437 @@
+<!doctype html><html lang=en>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta property="og:title" content="Istio Egress 网关实践">
+<meta property="og:description" content="本文介绍如何配置 Istio 使服务网格内的服务通过 Egress 网关访问外部服务。实验架构图如下，服务网格运行在 K8s 集群上，外部服务单独部署在集群外的一台虚拟机上。
+环境准备 使用阿里云部署一个托管单节点 K8s 集群，再在同一 VPC 下创建一个 ECS 实例（假设 IP 地址为 192.168.0.78）用于部署外部服务。在 K8s 集群上安装 Istio，注意：1. 安装时同时开启 Egress Gateway；2.设置只允许访问注册进服务网格的服务；3. 开启 Envoy 访问日志（别忘了！）1：
+1 2 3 4 5  istioctl install \  --set components.egressGateways[0].name=istio-egressgateway \  --set components.egressGateways[0].enabled=true \  --set meshConfig.outboundTrafficPolicy.mode=REGISTRY_ONLY \  --set meshConfig.accessLogFile=/dev/stdout   在集群外的这个虚拟机（192.168.0.78）上开启 HTTP 服务，监听端口为 1234：
+1  python -m http.server 1234   在 K8s 集群上部署一个开启 istio 代理的 Pod 用于作为测试客户端来访问：">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://huanggze.github.io/posts/istio-egress/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-02-18T21:34:49+08:00">
+<meta property="article:modified_time" content="2022-02-18T21:34:49+08:00">
+<meta name=twitter:card content="summary">
+<meta name=twitter:title content="Istio Egress 网关实践">
+<meta name=twitter:description content="本文介绍如何配置 Istio 使服务网格内的服务通过 Egress 网关访问外部服务。实验架构图如下，服务网格运行在 K8s 集群上，外部服务单独部署在集群外的一台虚拟机上。
+环境准备 使用阿里云部署一个托管单节点 K8s 集群，再在同一 VPC 下创建一个 ECS 实例（假设 IP 地址为 192.168.0.78）用于部署外部服务。在 K8s 集群上安装 Istio，注意：1. 安装时同时开启 Egress Gateway；2.设置只允许访问注册进服务网格的服务；3. 开启 Envoy 访问日志（别忘了！）1：
+1 2 3 4 5  istioctl install \  --set components.egressGateways[0].name=istio-egressgateway \  --set components.egressGateways[0].enabled=true \  --set meshConfig.outboundTrafficPolicy.mode=REGISTRY_ONLY \  --set meshConfig.accessLogFile=/dev/stdout   在集群外的这个虚拟机（192.168.0.78）上开启 HTTP 服务，监听端口为 1234：
+1  python -m http.server 1234   在 K8s 集群上部署一个开启 istio 代理的 Pod 用于作为测试客户端来访问：">
+<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
+<title>
+Hi Folks - Istio Egress 网关实践
+</title>
+<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+<link rel=preconnect href=https://fonts.googleapis.com>
+<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
+<link rel=stylesheet href=/minima.1645267482.css>
+<script defer type=text/javascript src=/minima.1645267482.js></script>
+</head>
+<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<body class="sm:mx-5 sm:my-0">
+<header class="flex justify-between items-center mb-6 sm:my-3">
+<div class="flex items-center">
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
+</div>
+<nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden">
+<a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a>
+</nav>
+</header>
+<details class="toc toc-lines">
+<summary></summary>
+<div class=pb-1>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#环境准备>环境准备</a></li>
+<li><a href=#实验>实验</a>
+<ul>
+<li><a href=#step-1-通过-serviceentry-将外部服务注册到服务网格>Step 1. 通过 ServiceEntry 将外部服务注册到服务网格</a></li>
+<li><a href=#step-2-在-egress-gateway-上开放-2234-端口>Step 2. 在 Egress Gateway 上开放 2234 端口</a></li>
+<li><a href=#step-3-配置-gateway-和-virtualservice-使流量经过网关>Step 3. 配置 Gateway 和 VirtualService 使流量经过网关</a></li>
+<li><a href=#step-4-测试>Step 4. 测试</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</details>
+<h1 class="mt-6 mb-6">Istio Egress 网关实践</h1>
+<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<div>
+Posted at &mdash; Feb 18, 2022
+</div>
+</div>
+<main>
+<p></p>
+<article class=md>
+<p>本文介绍如何配置 Istio 使服务网格内的服务通过 Egress 网关访问外部服务。实验架构图如下，服务网格运行在 K8s 集群上，外部服务单独部署在集群外的一台虚拟机上。</p>
+<p><img src=/images/istio-egress-1.png alt=istio-egress-1></p>
+<h2 id=环境准备>环境准备</h2>
+<p>使用阿里云部署一个托管单节点 K8s 集群，再在同一 VPC 下创建一个 ECS 实例（假设 IP 地址为 192.168.0.78）用于部署外部服务。在 K8s 集群上安装 Istio，注意：1. 安装时同时开启 Egress Gateway；2.设置只允许访问注册进服务网格的服务；3. 开启 Envoy 访问日志（别忘了！）<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>istioctl install <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.name<span class=o>=</span>istio-egressgateway <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span><span class=se></span>  --set meshConfig.outboundTrafficPolicy.mode<span class=o>=</span>REGISTRY_ONLY <span class=se>\
+</span><span class=se></span>  --set meshConfig.accessLogFile<span class=o>=</span>/dev/stdout
+</code></pre></td></tr></table>
+</div>
+</div><p>在集群外的这个虚拟机（192.168.0.78）上开启 HTTP 服务，监听端口为 1234：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>python -m http.server <span class=m>1234</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>在 K8s 集群上部署一个开启 istio 代理的 Pod 用于作为测试客户端来访问：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl label namespace default istio-injection<span class=o>=</span>enabled
+kubectl apply -f - <span class=s>&lt;&lt;EOF
+</span><span class=s>apiVersion: apps/v1
+</span><span class=s>kind: Deployment
+</span><span class=s>metadata:
+</span><span class=s>  name: sleep
+</span><span class=s>spec:
+</span><span class=s>  selector:
+</span><span class=s>    matchLabels:
+</span><span class=s>      app: sleep
+</span><span class=s>  template:
+</span><span class=s>    metadata:
+</span><span class=s>      labels:
+</span><span class=s>        app: sleep
+</span><span class=s>    spec:
+</span><span class=s>      containers:
+</span><span class=s>      - name: sleep
+</span><span class=s>        image: curlimages/curl
+</span><span class=s>        command: [&#34;/bin/sleep&#34;, &#34;3650d&#34;]
+</span><span class=s>        imagePullPolicy: IfNotPresent
+</span><span class=s>EOF</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>尝试从 sleep Pod 中测试访问 192.168.0.78:1234 的 HTTP 服务，可以发现无法访问。这是因为 istio-proxy 阻止了请求。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl <span class=nb>exec</span> sleep-7c7db887d8-9dnd7 -- curl -sSL -o /dev/null -D - 192.168.0.78:1234
+curl: <span class=o>(</span>56<span class=o>)</span> Recv failure: Connection reset by peer
+<span class=nb>command</span> terminated with <span class=nb>exit</span> code <span class=m>56</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id=实验>实验</h2>
+<h3 id=step-1-通过-serviceentry-将外部服务注册到服务网格>Step 1. 通过 ServiceEntry 将外部服务注册到服务网格</h3>
+<p>ServiceEntry 用于将外部服务注册到服务网格。由于外部服务是静态 IP 地址，因此 <code>resolution</code> 字段的值为 STATIC。将下面 ServiceEntry 部署到集群，就可以在 sleep 容器中访问 192.168.0.78:1234。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=l>$ kubectl apply -f - &lt;&lt;EOF</span><span class=w>
+</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1beta1</span><span class=w>
+</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceEntry</span><span class=w>
+</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>my-server-se</span><span class=w>
+</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>addresses</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=m>192.168.0.78</span><span class=l>/32</span><span class=w>
+</span><span class=w>  </span><span class=nt>endpoints</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=nt>address</span><span class=p>:</span><span class=w> </span><span class=m>192.168.0.78</span><span class=w>
+</span><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=l>my.server.com</span><span class=w>
+</span><span class=w>  </span><span class=nt>location</span><span class=p>:</span><span class=w> </span><span class=l>MESH_EXTERNAL</span><span class=w>
+</span><span class=w>  </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>http</span><span class=w>
+</span><span class=w>    </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>1234</span><span class=w>
+</span><span class=w>    </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span><span class=w>  </span><span class=nt>resolution</span><span class=p>:</span><span class=w> </span><span class=l>STATIC</span><span class=w>
+</span><span class=w></span><span class=l>EOF</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>此时，虽然可以访问 192.168.0.78:1234，但通过 istio-proxy 容器日志可以看到，是直连访问。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl <span class=nb>exec</span> sleep-7c7db887d8-9dnd7 -- curl -sSL -o /dev/null -D - 192.168.0.78:1234
+HTTP/1.0 <span class=m>200</span> OK
+Server: SimpleHTTP/0.6 Python/3.6.8
+Date: Sat, <span class=m>19</span> Feb <span class=m>2022</span> 07:37:40 GMT
+Content-type: text/html<span class=p>;</span> <span class=nv>charset</span><span class=o>=</span>utf-8
+Content-Length: <span class=m>690</span>
+</code></pre></td></tr></table>
+</div>
+</div><div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl logs sleep-7c7db887d8-9dnd7 -c istio-proxy
+<span class=o>[</span>2022-02-19T07:40:50.499Z<span class=o>]</span> <span class=s2>&#34;- - -&#34;</span> <span class=m>0</span> - - - <span class=s2>&#34;-&#34;</span> <span class=m>85</span> <span class=m>844</span> <span class=m>9</span> - <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;192.168.0.78:1234&#34;</span> outbound<span class=p>|</span>1234<span class=o>||</span>my.server.com 10.108.0.50:47780 192.168.0.78:1234 10.108.0.50:47778 - -
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=step-2-在-egress-gateway-上开放-2234-端口>Step 2. 在 Egress Gateway 上开放 2234 端口</h3>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>istioctl install <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.name<span class=o>=</span>istio-egressgateway <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span><span class=se></span>  --set meshConfig.outboundTrafficPolicy.mode<span class=o>=</span>REGISTRY_ONLY <span class=se>\
+</span><span class=se></span>  --set meshConfig.accessLogFile<span class=o>=</span>/dev/stdout <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.k8s.service.ports<span class=o>[</span>0<span class=o>]</span>.name<span class=o>=</span>my-server <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.k8s.service.ports<span class=o>[</span>0<span class=o>]</span>.port<span class=o>=</span><span class=m>2234</span> <span class=se>\
+</span><span class=se></span>  --set components.egressGateways<span class=o>[</span>0<span class=o>]</span>.k8s.service.ports<span class=o>[</span>0<span class=o>]</span>.protocol<span class=o>=</span>TCP
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=step-3-配置-gateway-和-virtualservice-使流量经过网关>Step 3. 配置 Gateway 和 VirtualService 使流量经过网关</h3>
+<p>Gateway 网关用于管理进出服务网关的流量。如下 Gateway 绑定 Istio 默认安装的 egress gateway 组件，并允许访问 my.server.com 的流量从 2234 端口出去。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=l>$ kubectl apply -f - &lt;&lt;EOF</span><span class=w>
+</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1beta1</span><span class=w>
+</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
+</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>my-server-gw</span><span class=w>
+</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>egressgateway</span><span class=w>
+</span><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span>- <span class=l>my.server.com</span><span class=w>
+</span><span class=w>    </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>my-server</span><span class=w>
+</span><span class=w>      </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>2234</span><span class=w>
+</span><span class=w>      </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span><span class=w></span><span class=l>EOF</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>接着，通过 VirtualService 绑定网关，指定要流经 Gateway 的流量转发规则。<code>.spec.gateways</code> 表示 my-server-gw 选择的网关（istio: egressgateway）以及服务网格里的所有 Istio sidecar（mesh）都要应用该 VirtualService 路由规则。发往 my.server.com 的请求，会首先在所在 Pod 的 Istio-proxy 上匹配到第一条规则，并因此发往 <code>istio-egressgateway.istio-system.svc</code> 服务的 2234 端口；接着，my-server-gw 选择的网关会匹配 2234 端口收到的流量，转发到 my.server.com:1234。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=l>$ kubectl apply -f - &lt;&lt;EOF</span><span class=w>
+</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1beta1</span><span class=w>
+</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>VirtualService</span><span class=w>
+</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>my-server-vs</span><span class=w>
+</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=l>my-server-gw</span><span class=w>
+</span><span class=w>  </span>- <span class=l>mesh</span><span class=w>
+</span><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=l>my.server.com</span><span class=w>
+</span><span class=w>  </span><span class=nt>tcp</span><span class=p>:</span><span class=w>
+</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span>- <span class=nt>destinationSubnets</span><span class=p>:</span><span class=w> </span><span class=c># 指定流量匹配规则</span><span class=w>
+</span><span class=w>      </span>- <span class=m>192.168.0.78</span><span class=l>/32</span><span class=w>
+</span><span class=w>      </span><span class=nt>gateways</span><span class=p>:</span><span class=w> 
+</span><span class=w>      </span>- <span class=l>mesh</span><span class=w> </span><span class=c># 指定 istio-proxy 收到的流量应用该 &#34;匹配-路由&#34; 规则 </span><span class=w>
+</span><span class=w>      </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>1234</span><span class=w>
+</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istio-egressgateway.istio-system.svc.cluster.local</span><span class=w>
+</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>2234</span><span class=w>
+</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span>- <span class=nt>gateways</span><span class=p>:</span><span class=w> 
+</span><span class=w>      </span>- <span class=l>my-server-gw</span><span class=w> </span><span class=c># 指定 egress gateway 收到的流量应用该 &#34;匹配-路由&#34; 规则 </span><span class=w>
+</span><span class=w>      </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>2234</span><span class=w>
+</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>my.server.com</span><span class=w>
+</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>1234</span><span class=w>
+</span><span class=w></span><span class=l>EOF</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><h3 id=step-4-测试>Step 4. 测试</h3>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl <span class=nb>exec</span> sleep-7c7db887d8-9dnd7 -- curl -sSL -o /dev/null -D - 192.168.0.78:1234
+HTTP/1.0 <span class=m>200</span> OK
+Server: SimpleHTTP/0.6 Python/3.6.8
+Date: Sat, <span class=m>19</span> Feb <span class=m>2022</span> 08:50:58 GMT
+Content-type: text/html<span class=p>;</span> <span class=nv>charset</span><span class=o>=</span>utf-8
+Content-Length: <span class=m>690</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>现在可以看到，sleep Pod 的 istio-proxy 和 Egress Gateway 有正确的访问日志，流量经过 Egress 网关。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl logs -l <span class=nv>app</span><span class=o>=</span>sleep -c istio-proxy
+<span class=o>[</span>2022-02-19T09:31:17.146Z<span class=o>]</span> <span class=s2>&#34;- - -&#34;</span> <span class=m>0</span> - - - <span class=s2>&#34;-&#34;</span> <span class=m>85</span> <span class=m>844</span> <span class=m>1</span> - <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;10.108.0.55:2234&#34;</span> outbound<span class=p>|</span>2234<span class=o>||</span>istio-egressgateway.istio-system.svc.cluster.local 10.108.0.56:33706 192.168.0.78:1234 10.108.0.56:50898 - -
+
+$ kubectl logs -n istio-system -l <span class=nv>istio</span><span class=o>=</span>egressgateway
+<span class=o>[</span>2022-02-19T09:31:17.147Z<span class=o>]</span> <span class=s2>&#34;- - -&#34;</span> <span class=m>0</span> - - - <span class=s2>&#34;-&#34;</span> <span class=m>85</span> <span class=m>844</span> <span class=m>12</span> - <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;192.168.0.78:1234&#34;</span> outbound<span class=p>|</span>1234<span class=o>||</span>my.server.com 10.108.0.55:49356 10.108.0.55:2234 10.108.0.56:33706 - -
+</code></pre></td></tr></table>
+</div>
+</div><section class=footnotes role=doc-endnotes>
+<hr>
+<ol>
+<li id=fn:1 role=doc-endnote>
+<p><a href=https://istio.io/latest/docs/tasks/observability/logs/access-log/>Envoy Access Logs</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>
+</article>
+</main>
+<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
+<p class="mt-0 text-sm">
+© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
+</p>
+<p class="flex items-center mt-0">
+<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+</a>
+<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
+</a>
+</p>
+</footer>
+</body>
+</html>
