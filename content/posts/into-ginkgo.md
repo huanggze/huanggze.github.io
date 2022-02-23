@@ -28,6 +28,11 @@ setup node:
 - JustAfterEach
 - BeforeSuite
 - AfterSuite
+- SynchronizedBeforeSuite
+- SynchronizedAfterSuite
+- BeforeAll
+- AfterAll
+- OncePerOrdered
 
 subject node:
 - It
@@ -39,6 +44,10 @@ non-node:
 - GinkgoWriter.Println(): Fail 的时候打印，正常隐藏
 - By
 - GinkgoRandomSeed
+
+decorator:
+- Serial
+- Ordered
 
 gomega:
 actual:
@@ -53,8 +62,10 @@ matcher:
 - BeTrue
 - BeNil
 - BeZero
+- BeEmpty
 - MatchError
 - Succeed
+- ConsistOf
 
 ginkgo cli
 --fail-fast
