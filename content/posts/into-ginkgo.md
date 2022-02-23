@@ -17,9 +17,13 @@ spec
 
 container node:
 - Describe
+- PDescribe/XDescribe
+- FDescribe
 - Context
 - When
 - DescribeTable
+- PDescribeTable/XDescribeTable
+- FDescribeTable
 
 setup node:
 - BeforeEach
@@ -36,18 +40,28 @@ setup node:
 
 subject node:
 - It
+- PIt/XIt
+- FIt
 - Entry (配合 DescribeTable)
+- PEntry / XEntry
+- FEntry
 
-non-node:
+non-node/function:
 - DeferCleanup (setup / subject node)
 - Fail/GinkgoRecover (setup / subject node)
 - GinkgoWriter.Println(): Fail 的时候打印，正常隐藏
 - By
 - GinkgoRandomSeed
+- Skip
 
 decorator:
 - Serial
 - Ordered
+- OncePerOrdered (setup node)
+- Pending
+- Focus
+- Label
+- FlakeAttempts
 
 gomega:
 actual:
@@ -71,3 +85,10 @@ ginkgo cli
 --fail-fast
 --randomize-all
 -p
+-r 递归遍历
+--label-filter=<string>
+--until-it-fails
+--timeout
+-v
+-vv(very verbose)
+ginkgo unfocus 自动取消focus
