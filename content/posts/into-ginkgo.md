@@ -36,7 +36,8 @@ setup node:
 - SynchronizedAfterSuite
 - BeforeAll
 - AfterAll
-- OncePerOrdered
+- ReportAfterEach
+- ReportAfterSuite
 
 subject node:
 - It
