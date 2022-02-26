@@ -67,6 +67,7 @@ decorator:
 gomega:
 actual:
 - Expect
+- Eventually (asynchronous assertions)
 assertion:
 - To
 - NotTo
@@ -81,6 +82,7 @@ matcher:
 - MatchError
 - Succeed
 - ConsistOf
+- BeNumerically
 
 ginkgo cli
 --fail-fast
@@ -93,3 +95,5 @@ ginkgo cli
 -v
 -vv(very verbose)
 ginkgo unfocus 自动取消focus
+SMOKETEST_SERVER_ADDR="127.0.0.1:3000" SMOKETEST_ENV="STAGING" ginkgo
+ginkgo <GINKGO-FLAGS> <PACKAGES> -- <PASS-THROUGHS>
