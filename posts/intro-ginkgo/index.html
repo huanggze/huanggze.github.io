@@ -1,0 +1,275 @@
+<!doctype html><html lang=en>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta property="og:title" content="Ginkgo 测试框架介绍">
+<meta property="og:description" content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
+如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  var _ = Describe(&#34;Books&#34;, func() { var foxInSocks, lesMis *books.Book BeforeEach(func() { lesMis = &books.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://huanggze.github.io/posts/intro-ginkgo/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-02-25T21:32:07+08:00">
+<meta property="article:modified_time" content="2022-02-25T21:32:07+08:00">
+<meta name=twitter:card content="summary">
+<meta name=twitter:title content="Ginkgo 测试框架介绍">
+<meta name=twitter:description content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
+如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  var _ = Describe(&#34;Books&#34;, func() { var foxInSocks, lesMis *books.Book BeforeEach(func() { lesMis = &books.">
+<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
+<title>
+Hi Folks - Ginkgo 测试框架介绍
+</title>
+<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+<link rel=preconnect href=https://fonts.googleapis.com>
+<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
+<link rel=stylesheet href=/minima.1645851776.css>
+<script defer type=text/javascript src=/minima.1645851776.js></script>
+</head>
+<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<body class="sm:mx-5 sm:my-0">
+<header class="flex justify-between items-center mb-6 sm:my-3">
+<div class="flex items-center">
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
+</div>
+<nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden">
+<a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a>
+</nav>
+</header>
+<details class="toc toc-lines">
+<summary></summary>
+<div class=pb-1>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#概念>概念</a>
+<ul>
+<li><a href=#specsuite>Spec，Suite</a></li>
+<li><a href=#containersetupsubject-node>Container，Setup，Subject Node</a></li>
+<li><a href=#tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</a></li>
+<li><a href=#decorator>Decorator</a></li>
+<li><a href=#assertion>Assertion</a></li>
+</ul>
+</li>
+<li><a href=#实践>实践</a>
+<ul>
+<li><a href=#heading></a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</details>
+<h1 class="mt-6 mb-6">Ginkgo 测试框架介绍</h1>
+<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<div>
+Posted at &mdash; Feb 25, 2022
+</div>
+</div>
+<main>
+<p></p>
+<article class=md>
+<p>除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。</p>
+<p>如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+  <span class=kd>var</span> <span class=nx>foxInSocks</span><span class=p>,</span> <span class=nx>lesMis</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
+
+  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+    <span class=nx>lesMis</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
+      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Les Miserables&#34;</span><span class=p>,</span>
+      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span>
+      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>2783</span><span class=p>,</span>
+    <span class=p>}</span>
+
+    <span class=nx>foxInSocks</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
+      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Fox In Socks&#34;</span><span class=p>,</span>
+      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Dr. Seuss&#34;</span><span class=p>,</span>
+      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>24</span><span class=p>,</span>
+    <span class=p>}</span>
+  <span class=p>})</span>
+
+  <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Categorizing books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with more than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a novel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+        <span class=nf>Expect</span><span class=p>(</span><span class=nx>lesMis</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryNovel</span><span class=p>))</span>
+      <span class=p>})</span>
+    <span class=p>})</span>
+
+    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with fewer than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a short story&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+        <span class=nf>Expect</span><span class=p>(</span><span class=nx>foxInSocks</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryShortStory</span><span class=p>))</span>
+      <span class=p>})</span>
+    <span class=p>})</span>
+  <span class=p>})</span>
+<span class=p>})</span>
+</code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>ginkgo 大量使用了闭包函数。</p>
+</blockquote>
+<h2 id=概念>概念</h2>
+<h3 id=specsuite>Spec，Suite</h3>
+<p>在 Ginkgo 的语境中，spec 是一个个独立的 Ginkgo 测试用例（前面示例代码中 It 函数中的内容），一组 spec 包含在一个 Ginkgo suite 中。Ginkgo suite 是包层级，包名为 *_test，与代码包并列。使用 <code>ginkgo bootstrap</code> 命令自动创建 suite_test.go 代码：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nb>cd</span> path/to/books
+ginkgo bootstrap
+Generating ginkgo <span class=nb>test</span> suite bootstrap <span class=k>for</span> books in:
+  books_suite_test.go
+</code></pre></td></tr></table>
+</div>
+</div><div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>package</span> <span class=nx>books_test</span>
+
+<span class=kn>import</span> <span class=p>(</span>
+  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
+  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
+  <span class=s>&#34;testing&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>func</span> <span class=nf>TestBooks</span><span class=p>(</span><span class=nx>t</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>T</span><span class=p>)</span> <span class=p>{</span>
+  <span class=nf>RegisterFailHandler</span><span class=p>(</span><span class=nx>Fail</span><span class=p>)</span>
+  <span class=nf>RunSpecs</span><span class=p>(</span><span class=nx>t</span><span class=p>,</span> <span class=s>&#34;Books Suite&#34;</span><span class=p>)</span>
+<span class=p>}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>我们可以把测试用例 spec 加到 suit_test.go 中，也可以放到单独的文件，通过 <code>ginkgo generate</code> 命令创建测试代码文件 _test.go：</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>ginkgo generate book
+Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
+  book_test.go
+</code></pre></td></tr></table>
+</div>
+</div><div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>package</span> <span class=nx>books_test</span>
+
+<span class=kn>import</span> <span class=p>(</span>
+  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
+  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
+
+  <span class=s>&#34;path/to/books&#34;</span>
+<span class=p>)</span>
+
+<span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+
+<span class=p>})</span>
+</code></pre></td></tr></table>
+</div>
+</div><h3 id=containersetupsubject-node>Container，Setup，Subject Node</h3>
+<p>如何编写 Ginkgo 测试用例呢？Ginkgo 通过树形结构构造测试用例树。这个树包含三种节点：Container 节点、Setup 节点、Subject 节点。Container 节点。</p>
+<p>Container 节点用于组织多个 spec，Ginkgo 提供 <code>Describe</code>、<code>When</code>、<code>Conext</code> 方法创建 Container 节点。 Subject 节点放置在 Container 节点中，Subject 节点内实现具体测试用例逻辑。Subject 节点与 spec 概念一一对应。一个 Subject 节点即是一个测试用例。Ginkgo 提供 <code>It</code> 方法创建 Subject 节点。而 Setup 节点用于为测试用例准备环境和依赖、回收资源等操作。Ginkgo 提供 <code>BeforeEach</code>、<code>AfterEach</code>、<code>BeforeSuite</code>、<code>AfterSuite</code> 等函数创建 Setup 节点。</p>
+<p>Ginkgo 推荐的最佳实践是 &ldquo;Declare in container nodes, initialize in setup nodes&rdquo;，在 Container 节点声明，在 Setup 节点初始化，这样每个 spec 都能拿到最新初始化的对象，否则可能出现不同测试同时读写数据，产生脏数据，导致测试结果不确定。</p>
+<h3 id=tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</h3>
+<p>Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。前一个阶段，构建测试用例树，如果使用了 Ginkgo 提供的 <code>DescribeTable</code> 和 <code>Entry</code> 语法糖，那么会在这个阶段被解析到树结构中。</p>
+<p>在 Run Phase 阶段，Ginkgo 会在运行每个 spec 前，执行 <code>BeforeEach</code> 闭包函数；结束后，执行 <code>AfterEach</code> 函数。</p>
+<h3 id=decorator>Decorator</h3>
+<h3 id=assertion>Assertion</h3>
+<h2 id=实践>实践</h2>
+<h3 id=heading></h3>
+<section class=footnotes role=doc-endnotes>
+<hr>
+<ol>
+<li id=fn:1 role=doc-endnote>
+<p><a href=https://www.51cto.com/article/573796.html>一文讲清楚什么是行为驱动开发</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>
+</article>
+</main>
+<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
+<p class="mt-0 text-sm">
+© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
+</p>
+<p class="flex items-center mt-0">
+<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+</a>
+<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
+</a>
+</p>
+</footer>
+</body>
+</html>
