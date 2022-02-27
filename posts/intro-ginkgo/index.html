@@ -24,8 +24,8 @@ Hi Folks - Ginkgo 测试框架介绍
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1645851776.css>
-<script defer type=text/javascript src=/minima.1645851776.js></script>
+<link rel=stylesheet href=/minima.1645940809.css>
+<script defer type=text/javascript src=/minima.1645940809.js></script>
 </head>
 <script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
 <body class="sm:mx-5 sm:my-0">
@@ -241,10 +241,74 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 <p>Container 节点用于组织多个 spec，Ginkgo 提供 <code>Describe</code>、<code>When</code>、<code>Conext</code> 方法创建 Container 节点。 Subject 节点放置在 Container 节点中，Subject 节点内实现具体测试用例逻辑。Subject 节点与 spec 概念一一对应。一个 Subject 节点即是一个测试用例。Ginkgo 提供 <code>It</code> 方法创建 Subject 节点。而 Setup 节点用于为测试用例准备环境和依赖、回收资源等操作。Ginkgo 提供 <code>BeforeEach</code>、<code>AfterEach</code>、<code>BeforeSuite</code>、<code>AfterSuite</code> 等函数创建 Setup 节点。</p>
 <p>Ginkgo 推荐的最佳实践是 &ldquo;Declare in container nodes, initialize in setup nodes&rdquo;，在 Container 节点声明，在 Setup 节点初始化，这样每个 spec 都能拿到最新初始化的对象，否则可能出现不同测试同时读写数据，产生脏数据，导致测试结果不确定。</p>
 <h3 id=tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</h3>
-<p>Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。前一个阶段，构建测试用例树，如果使用了 Ginkgo 提供的 <code>DescribeTable</code> 和 <code>Entry</code> 语法糖，那么会在这个阶段被解析到树结构中。</p>
-<p>在 Run Phase 阶段，Ginkgo 会在运行每个 spec 前，执行 <code>BeforeEach</code> 闭包函数；结束后，执行 <code>AfterEach</code> 函数。</p>
+<p>Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。Tree Construction 阶段，构建测试用例树，如果使用了 Ginkgo 提供的 <code>DescribeTable</code> 和 <code>Entry</code> 语法糖，那么会在这个阶段被解析到树结构中。Run 阶段执行 Setup 节点和 Subject 节点，Ginkgo 会在运行每个 spec 前，执行 <code>BeforeEach</code> 闭包函数；结束后，执行 <code>AfterEach</code> 函数。</p>
 <h3 id=decorator>Decorator</h3>
+<p>Spec decorator 用于给测试用例 spec 添加元信息，以调整 spec 在运行阶段的行为。Decorator 作用在 Container 节点和 Subject 节点。以下示例展示了在 Container 节点中使用 <code>Serial</code> decorator 来规定 Container 节点下所有 spec 都应串行执行，而不与其他 spec 并行。</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Something expensive&#34;</span><span class=p>,</span> <span class=nx>Serial</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is a resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+    <span class=o>...</span>
+  <span class=p>})</span>
+
+  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is another resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+    <span class=o>...</span>
+  <span class=p>})</span>
+<span class=p>})</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>常用 Decorator 及其功能如下：</p>
+<table>
+<thead>
+<tr>
+<th>Decorator</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serial</td>
+<td>串行执行 spec。底层实现是 Serial spec 在 suite 中最后执行，且运行在 #1 进程。#1 进程执行 Serial spec 前等待所有其他进程先退出。</td>
+</tr>
+<tr>
+<td>Ordered</td>
+<td>作用于 Container 节点，顺序执行节点下的所有 spec</td>
+</tr>
+<tr>
+<td>OncePerOrdered</td>
+<td>作用于 Setup 节点，使 <code>BeforeEach</code> 等会把 Ordered spec 作为整体处理</td>
+</tr>
+<tr>
+<td>Pending</td>
+<td>不执行的测试用例</td>
+</tr>
+<tr>
+<td>Focus</td>
+<td>被执行的测试用例</td>
+</tr>
+<tr>
+<td>Label</td>
+<td>给 spec 打标签，<code>It("is labelled", Label("first label", "second label"), func() { ... })</code></td>
+</tr>
+<tr>
+<td>FlakeAttempts</td>
+<td>如果 spec 失败，不会立刻判断失败，而是尝试 N 次（FlakeAttempts(N)）。还是失败，则判定测试用例失败</td>
+</tr>
+</tbody>
+</table>
 <h3 id=assertion>Assertion</h3>
+<p>Ginkgo 使用 gomega</p>
 <h2 id=实践>实践</h2>
 <h3 id=heading></h3>
 <section class=footnotes role=doc-endnotes>
