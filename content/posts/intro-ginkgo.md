@@ -106,13 +106,39 @@ Ginkgo 推荐的最佳实践是 "Declare in container nodes, initialize in setup
 
 ### Tree Construction Phase，Run Phase
 
-Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。前一个阶段，构建测试用例树，如果使用了 Ginkgo 提供的 `DescribeTable` 和 `Entry` 语法糖，那么会在这个阶段被解析到树结构中。
-
-在 Run Phase 阶段，Ginkgo 会在运行每个 spec 前，执行 `BeforeEach` 闭包函数；结束后，执行 `AfterEach` 函数。
+Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。Tree Construction 阶段，构建测试用例树，如果使用了 Ginkgo 提供的 `DescribeTable` 和 `Entry` 语法糖，那么会在这个阶段被解析到树结构中。Run 阶段执行 Setup 节点和 Subject 节点，Ginkgo 会在运行每个 spec 前，执行 `BeforeEach` 闭包函数；结束后，执行 `AfterEach` 函数。
 
 ### Decorator
 
+Spec decorator 用于给测试用例 spec 添加元信息，以调整 spec 在运行阶段的行为。Decorator 作用在 Container 节点和 Subject 节点。以下示例展示了在 Container 节点中使用 `Serial` decorator 来规定 Container 节点下所有 spec 都应串行执行，而不与其他 spec 并行。
+
+```go
+Describe("Something expensive", Serial, func() {
+  It("is a resource hog that can't run in parallel", func() {
+    ...
+  })
+
+  It("is another resource hog that can't run in parallel", func() {
+    ...
+  })
+})
+```
+
+常用 Decorator 及其功能如下：
+
+| Decorator      | 描述                                                                                     |
+|----------------|----------------------------------------------------------------------------------------|
+| Serial         | 串行执行 spec。底层实现是 Serial spec 在 suite 中最后执行，且运行在 #1 进程。#1 进程执行 Serial spec 前等待所有其他进程先退出。 |
+| Ordered        | 作用于 Container 节点，顺序执行节点下的所有 spec                                                       |                    
+| OncePerOrdered | 作用于 Setup 节点，使 `BeforeEach` 等会把 Ordered spec 作为整体处理                                    |
+| Pending        | 不执行的测试用例                                                                               |
+| Focus          | 被执行的测试用例                                                                               |
+| Label          | 给 spec 打标签，`It("is labelled", Label("first label", "second label"), func() { ... })`   |
+| FlakeAttempts               | 如果 spec 失败，不会立刻判断失败，而是尝试 N 次（FlakeAttempts(N)）。还是失败，则判定测试用例失败                          |
+
 ### Assertion
+
+Ginkgo 使用 gomega 
 
 ## 实践
 
