@@ -17,5 +17,11 @@ scalability:
 - large: advanced tooling, automation
 
 比较：
+- Jsonnet
 - Json schema
+- open api (缺点 very verbose)
+- Rego
 - 
+
+定义
+\#V3
