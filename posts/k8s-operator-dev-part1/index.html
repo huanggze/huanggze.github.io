@@ -19,70 +19,38 @@
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
 Hi Folks - K8s Operator 开发（一）：概述
-</title>
-<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646047372.css>
-<script defer type=text/javascript src=/minima.1646047372.js></script>
-</head>
-<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<link rel=stylesheet href=/minima.1646134251.css>
+<script defer type=text/javascript src=/minima.1646134251.js></script>
+</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
 <div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
-</div>
-<nav class="flex items-center
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
 <a class=ml-5 href=/about>About</a>
-</nav>
-</header>
-<details class="toc toc-lines">
+</nav></header><details class="toc toc-lines">
 <summary></summary>
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
-<li><a href=#operator-控制器>Operator 控制器</a></li>
-<li><a href=#kubebuilder>Kubebuilder</a>
+<li><a href=#operator-控制器>Operator 控制器</a></li><li><a href=#kubebuilder>Kubebuilder</a>
 <ul>
-<li><a href=#初始化项目>初始化项目</a></li>
-<li><a href=#测试部署>测试部署</a></li>
-<li><a href=#定义自定义资源>定义自定义资源</a></li>
-<li><a href=#编写控制器>编写控制器</a></li>
-<li><a href=#部署与-rbac>部署与 RBAC</a></li>
-</ul>
-</li>
-</ul>
-</nav>
-</div>
-</details>
-<h1 class="mt-6 mb-6">K8s Operator 开发（一）：概述</h1>
-<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<li><a href=#初始化项目>初始化项目</a></li><li><a href=#测试部署>测试部署</a></li><li><a href=#定义自定义资源>定义自定义资源</a></li><li><a href=#编写控制器>编写控制器</a></li><li><a href=#部署与-rbac>部署与 RBAC</a></li></ul></li></ul></nav></div></details>
+<h1 class="mt-6 mb-6">K8s Operator 开发（一）：概述</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
 Posted at &mdash; Jan 15, 2022
-</div>
-</div>
-<main>
-<p></p>
-<article class=md>
-<h2 id=operator-控制器>Operator 控制器</h2>
-<p>K8s 定义了很多抽象内部资源来描述不同工作负载类型，比如 Deployment 用于无状态应用<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>部署、StatefulSet 用于有状态应用、CronJob 适用于运行定时任务。</p>
-<blockquote>
-<p>Deployment 和 StatefulSet 的区别<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>：</p>
-<ul>
-<li>Deployment 创建的 Pod 之间没有顺序，服务通过 Service 的 Service IP 暴露。Deployment 也可以使用持久化存储卷实现有状态应用部署，但有使用限制。Deployment 只支持通过 .spec.template.spec.volumes.persistentVolumeClaim 引用一个 PVC（提前创建）。如果该 PVC 访问模式支持且设置为 RWO，Deployment 副本数量必须为 1（单 Pod）；否则，使用 RWX 模式，多个 Pod 共享存储。</li>
-<li>StatefulSet：每个 Pod 有自己的存储，通过 .spec.volumeClaimTemplates 为每个 Pod 创建一个独立的 PV 保存其数据和状态。即使删除 StatefulSet 或 Pod 宕机，创建的 PVC 仍保留其数据并可以在 Pod 恢复后重新恢复绑定。StatefulSet 和无头服务配合使用（.spec.clusterIP=None），无头服务不做负载均衡，返回所有关联 Pod 的 IP 地址列表。</li>
-</ul>
-</blockquote>
-<p>这些 K8s 内部资源的状态由对应资源的控制器来维护，比如 Deployment 对应 Deployment Controller。K8s 控制组件 kube-controller-manager 包含了所有内部资源控制器。控制器本质上是一个控制回路（control loop）无限循环进程，Watch 资源状态，并做出相应调整，调协当前状态（status）至期望状态（spec），如：滚动更新，恢复宕机的 Pod。对于运行在 Pod 中的程序，如下图<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>中的 DB 和 Web 程序，他们本身并无感知自身运行在 K8s 环境中。应用运维由 K8s 控制器来完成。</p>
-<p><img src=/images/k8s-operator-dev-part1-1.png alt=k8s-operator-dev-part1-1></p>
-<p>虽然 K8s 在容器编排和基础设施层做了统一的抽象，实现了自动化运维，但对特定应用运维以及业务运维上，仍需要人力介入。比如，在 K8s 上安装、升级 Redis 集群，我们需要手动组装和更新多个 K8s 资源，包括：ConfigMap、StatefulSet、Service 等（或通过 Helm）。更复杂的场景是实现业务运维自动化，比如根据数据库某个表字段的更新，重启另一个业务应用。这种场景对控制器提出了更高的要求，要求控制器能拥有业务运维知识，根据特定业务场景自动化管理相关组件。Kubernetes 自身的基础模型元素已经无法支撑不同业务领域下复杂的自动化场景。于是，K8s 社区提出了 Custom Resource（CR）和 Operator 的概念。基于自定义资源和自定义资源控制器，来扩展原生 Kubernetes 的能力。</p>
-<p>Operator 的开发者可以将业务相关的运维逻辑编写到 Operator 和 CR 中，并将 CR 应用到 K8s 集群。Operator 控制器通过访问 K8s API，像操作 Deployment 等内部资源一样，监听对应 CR 状态，并创建修改其他 K8s 内部资源或外部依赖。因此，不同于之前图片中橙色框中 DB 和 Web 应用，Operator 需要与 kube-apiserver 通信（C/S 架构）。一个 Operator 应用示例如下，我们可以定义一个 Database 类型（kind）的 CR 实现 Database Operator 声明式配置的方式一键部署数据库服务。</p>
-<div class=highlight><div class=chroma>
+</div></div><main>
+<p></p><article class=md>
+<h2 id=operator-控制器>Operator 控制器</h2><p>K8s 定义了很多抽象内部资源来描述不同工作负载类型，比如 Deployment 用于无状态应用<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>部署、StatefulSet 用于有状态应用、CronJob 适用于运行定时任务。</p><blockquote>
+<p>Deployment 和 StatefulSet 的区别<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>：</p><ul>
+<li>Deployment 创建的 Pod 之间没有顺序，服务通过 Service 的 Service IP 暴露。Deployment 也可以使用持久化存储卷实现有状态应用部署，但有使用限制。Deployment 只支持通过 .spec.template.spec.volumes.persistentVolumeClaim 引用一个 PVC（提前创建）。如果该 PVC 访问模式支持且设置为 RWO，Deployment 副本数量必须为 1（单 Pod）；否则，使用 RWX 模式，多个 Pod 共享存储。</li><li>StatefulSet：每个 Pod 有自己的存储，通过 .spec.volumeClaimTemplates 为每个 Pod 创建一个独立的 PV 保存其数据和状态。即使删除 StatefulSet 或 Pod 宕机，创建的 PVC 仍保留其数据并可以在 Pod 恢复后重新恢复绑定。StatefulSet 和无头服务配合使用（.spec.clusterIP=None），无头服务不做负载均衡，返回所有关联 Pod 的 IP 地址列表。</li></ul></blockquote><p>这些 K8s 内部资源的状态由对应资源的控制器来维护，比如 Deployment 对应 Deployment Controller。K8s 控制组件 kube-controller-manager 包含了所有内部资源控制器。控制器本质上是一个控制回路（control loop）无限循环进程，Watch 资源状态，并做出相应调整，调协当前状态（status）至期望状态（spec），如：滚动更新，恢复宕机的 Pod。对于运行在 Pod 中的程序，如下图<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>中的 DB 和 Web 程序，他们本身并无感知自身运行在 K8s 环境中。应用运维由 K8s 控制器来完成。</p><p><img src=/images/k8s-operator-dev-part1-1.png alt=k8s-operator-dev-part1-1></p><p>虽然 K8s 在容器编排和基础设施层做了统一的抽象，实现了自动化运维，但对特定应用运维以及业务运维上，仍需要人力介入。比如，在 K8s 上安装、升级 Redis 集群，我们需要手动组装和更新多个 K8s 资源，包括：ConfigMap、StatefulSet、Service 等（或通过 Helm）。更复杂的场景是实现业务运维自动化，比如根据数据库某个表字段的更新，重启另一个业务应用。这种场景对控制器提出了更高的要求，要求控制器能拥有业务运维知识，根据特定业务场景自动化管理相关组件。Kubernetes 自身的基础模型元素已经无法支撑不同业务领域下复杂的自动化场景。于是，K8s 社区提出了 Custom Resource（CR）和 Operator 的概念。基于自定义资源和自定义资源控制器，来扩展原生 Kubernetes 的能力。</p><p>Operator 的开发者可以将业务相关的运维逻辑编写到 Operator 和 CR 中，并将 CR 应用到 K8s 集群。Operator 控制器通过访问 K8s API，像操作 Deployment 等内部资源一样，监听对应 CR 状态，并创建修改其他 K8s 内部资源或外部依赖。因此，不同于之前图片中橙色框中 DB 和 Web 应用，Operator 需要与 kube-apiserver 通信（C/S 架构）。一个 Operator 应用示例如下，我们可以定义一个 Database 类型（kind）的 CR 实现 Database Operator 声明式配置的方式一键部署数据库服务。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -93,55 +61,36 @@ Posted at &mdash; Jan 15, 2022
 </span><span class=lnt>7
 </span><span class=lnt>8
 </span><span class=lnt>9
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Database</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mydb</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
-</span><span class=w>  </span><span class=nt>user</span><span class=p>:</span><span class=w> </span><span class=l>root</span><span class=w>
-</span><span class=w>  </span><span class=nt>password</span><span class=p>:</span><span class=w> </span><span class=l>root</span><span class=w>
-</span><span class=w></span><span class=nt>status</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>phase</span><span class=p>:</span><span class=w> </span><span class=l>Running</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h2 id=kubebuilder>Kubebuilder</h2>
-<p>从前文我们知道，开发一个 Operator 首先需要定义 CR 并完成 Operator 代码。K8s 社区提供了 Kubebuilder 开发框架。本节介绍如何实现前面提到的业务运维需求，监听数据库表字段变化，重启业务应用。我们将该 Operator 命名为 Autorebooter，并定义 RebootPolicy 自定义资源。在 RebootPolicy 中定义目标业务应用和数据库监听逻辑。总体上，我们需要定义一个 CR，一个 Operator，并部署到 K8s 集群上。 Kubebuilder 详细使用手册可参考官方开发文档<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>。</p>
-<h3 id=初始化项目>初始化项目</h3>
-<p>安装 Kubebuilder，当前最新版本是 v2.3.0。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Database</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mydb</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>user</span><span class=p>:</span><span class=w> </span><span class=l>root</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>password</span><span class=p>:</span><span class=w> </span><span class=l>root</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>status</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>phase</span><span class=p>:</span><span class=w> </span><span class=l>Running</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=kubebuilder>Kubebuilder</h2><p>从前文我们知道，开发一个 Operator 首先需要定义 CR 并完成 Operator 代码。K8s 社区提供了 Kubebuilder 开发框架。本节介绍如何实现前面提到的业务运维需求，监听数据库表字段变化，重启业务应用。我们将该 Operator 命名为 Autorebooter，并定义 RebootPolicy 自定义资源。在 RebootPolicy 中定义目标业务应用和数据库监听逻辑。总体上，我们需要定义一个 CR，一个 Operator，并部署到 K8s 集群上。 Kubebuilder 详细使用手册可参考官方开发文档<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>。</p><h3 id=初始化项目>初始化项目</h3><p>安装 Kubebuilder，当前最新版本是 v2.3.0。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/<span class=k>$(</span>go env GOOS<span class=k>)</span>/<span class=k>$(</span>go env GOARCH<span class=k>)</span>
-chmod +x kubebuilder <span class=o>&amp;&amp;</span> mv kubebuilder /usr/local/bin/
-</code></pre></td></tr></table>
-</div>
-</div><p>通过 Kubebuilder 创建 Autorebooter Operator：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/<span class=k>$(</span>go env GOOS<span class=k>)</span>/<span class=k>$(</span>go env GOARCH<span class=k>)</span>
+</span></span><span class=line><span class=cl>chmod +x kubebuilder <span class=o>&amp;&amp;</span> mv kubebuilder /usr/local/bin/
+</span></span></code></pre></td></tr></table></div></div><p>通过 Kubebuilder 创建 Autorebooter Operator：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nb>cd</span> autorebooter
-kubebuilder init --domain my.domain --repo my.domain/autorebooter
-</code></pre></td></tr></table>
-</div>
-</div><p>接下来，为 CR 和 Operator 控制器创建模板代码。这里通过 <code>kubebuilder create api</code> 命令创建。group、version、kind 分别表示 CR 资源的 API 组、版本和资源类型名称。基本上所有 K8s 资源都有这三个部分，如 Job 是在 batch API Group 下，最新的稳定 API 版本是 v1。该 API Group 下的其他资源还包括 CronJob。GVK 是 K8s 源码中的重要概念，一个 GVK 唯一对应一种资源类型。我们会在本系列后面部分继续介绍。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>cd</span> autorebooter
+</span></span><span class=line><span class=cl>kubebuilder init --domain my.domain --repo my.domain/autorebooter
+</span></span></code></pre></td></tr></table></div></div><p>接下来，为 CR 和 Operator 控制器创建模板代码。这里通过 <code>kubebuilder create api</code> 命令创建。group、version、kind 分别表示 CR 资源的 API 组、版本和资源类型名称。基本上所有 K8s 资源都有这三个部分，如 Job 是在 batch API Group 下，最新的稳定 API 版本是 v1。该 API Group 下的其他资源还包括 CronJob。GVK 是 K8s 源码中的重要概念，一个 GVK 唯一对应一种资源类型。我们会在本系列后面部分继续介绍。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
-</code></pre></td></tr></table>
-</div>
-</div><p>输入以上命令，当提示是否 <code>Create Resource [y/n]</code> 以及 <code>Create Controller [y/n]</code> 时，按 y 会创建以下项目结构：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubebuilder create api --group autoreboot --version v1alpha1 --kind RebootPolicy
+</span></span></code></pre></td></tr></table></div></div><p>输入以上命令，当提示是否 <code>Create Resource [y/n]</code> 以及 <code>Create Controller [y/n]</code> 时，按 y 会创建以下项目结构：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -165,35 +114,30 @@ kubebuilder init --domain my.domain --repo my.domain/autorebooter
 </span><span class=lnt>20
 </span><span class=lnt>21
 </span><span class=lnt>22
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>.
-├── api <span class=c1># CR</span>
-│   └── v1alpha1
-│       ├── groupversion_info.go
-│       ├── rebootpolicy_types.go <span class=c1># 自定义资源 Go 结构体声明</span>
-│       └── zz_generated.deepcopy.go <span class=c1># 自动生产的结构体深拷贝代码</span>
-├── bin
-├── config <span class=c1># YAMl 文件</span>
-│   ├── crd <span class=c1># 自定义资源定义（Custom Resource Definition）</span>
-│   │       <span class=c1># 用于自定义资源注册和服务发现</span>
-│   ├── manager <span class=c1># Operator Deployment 部署 YAML 文件</span>
-│   │   ├── kustomization.yaml
-│   │   └── manager.yaml
-│   ├── rbac <span class=c1># RBAC 权限相关</span>
-│   └── samples <span class=c1># CR 实例</span>
-├── controllers
-│   └─ rebootpolicy_controller.go <span class=c1># 控制器代码，实现了 k8s go-client</span>
-│                                 <span class=c1># 访问 kube-apiserver</span>
-├── go.mod
-├── Dockerfile
-├── Makefile <span class=c1># Operator 部署安装命令</span>
-└── main.go <span class=c1># Operator 入口程序</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=测试部署>测试部署</h3>
-<p>api/valpha1/rebootpolicy_types.go 包含了自定义资源的 Go 代码，代码里默认定义了两个结构体 <code>RebootPolicy</code> 和 <code>RebootPolicyList</code>。测试部署，首先使用 <code>make install</code> 命令安装自定义资源定义（CustomResourceDefinition，CRD）文件到 K8s 集群（通过读取 ~/.kube/config，本地测试 K8s 环境可以使用 minikube）。CRD 是对自定义资源的结构化定义，定义了 CR 支持的字段、字段类型。使用 CR 前必须先创建并应用对应的 CRD。如下片段是默认创建出来的 CRD，定义了自定义资源 RebootPolicy，spec 里包含一个 foo 字段。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>.
+</span></span><span class=line><span class=cl>├── api <span class=c1># CR</span>
+</span></span><span class=line><span class=cl>│   └── v1alpha1
+</span></span><span class=line><span class=cl>│       ├── groupversion_info.go
+</span></span><span class=line><span class=cl>│       ├── rebootpolicy_types.go <span class=c1># 自定义资源 Go 结构体声明</span>
+</span></span><span class=line><span class=cl>│       └── zz_generated.deepcopy.go <span class=c1># 自动生产的结构体深拷贝代码</span>
+</span></span><span class=line><span class=cl>├── bin
+</span></span><span class=line><span class=cl>├── config <span class=c1># YAMl 文件</span>
+</span></span><span class=line><span class=cl>│   ├── crd <span class=c1># 自定义资源定义（Custom Resource Definition）</span>
+</span></span><span class=line><span class=cl>│   │       <span class=c1># 用于自定义资源注册和服务发现</span>
+</span></span><span class=line><span class=cl>│   ├── manager <span class=c1># Operator Deployment 部署 YAML 文件</span>
+</span></span><span class=line><span class=cl>│   │   ├── kustomization.yaml
+</span></span><span class=line><span class=cl>│   │   └── manager.yaml
+</span></span><span class=line><span class=cl>│   ├── rbac <span class=c1># RBAC 权限相关</span>
+</span></span><span class=line><span class=cl>│   └── samples <span class=c1># CR 实例</span>
+</span></span><span class=line><span class=cl>├── controllers
+</span></span><span class=line><span class=cl>│   └─ rebootpolicy_controller.go <span class=c1># 控制器代码，实现了 k8s go-client</span>
+</span></span><span class=line><span class=cl>│                                 <span class=c1># 访问 kube-apiserver</span>
+</span></span><span class=line><span class=cl>├── go.mod
+</span></span><span class=line><span class=cl>├── Dockerfile
+</span></span><span class=line><span class=cl>├── Makefile <span class=c1># Operator 部署安装命令</span>
+</span></span><span class=line><span class=cl>└── main.go <span class=c1># Operator 入口程序</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=测试部署>测试部署</h3><p>api/valpha1/rebootpolicy_types.go 包含了自定义资源的 Go 代码，代码里默认定义了两个结构体 <code>RebootPolicy</code> 和 <code>RebootPolicyList</code>。测试部署，首先使用 <code>make install</code> 命令安装自定义资源定义（CustomResourceDefinition，CRD）文件到 K8s 集群（通过读取 ~/.kube/config，本地测试 K8s 环境可以使用 minikube）。CRD 是对自定义资源的结构化定义，定义了 CR 支持的字段、字段类型。使用 CR 前必须先创建并应用对应的 CRD。如下片段是默认创建出来的 CRD，定义了自定义资源 RebootPolicy，spec 里包含一个 foo 字段。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -240,57 +184,53 @@ kubebuilder init --domain my.domain --repo my.domain/autorebooter
 </span><span class=lnt>43
 </span><span class=lnt>44
 </span><span class=lnt>45
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=c># kubectl get crd rebootpolicies.autoreboot.my.domain -oyaml</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apiextensions.k8s.io/v1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CustomResourceDefinition</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicies.autoreboot.my.domain</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>group</span><span class=p>:</span><span class=w> </span><span class=l>autoreboot.my.domain</span><span class=w>
-</span><span class=w>  </span><span class=nt>names</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy</span><span class=w>
-</span><span class=w>    </span><span class=nt>listKind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicyList</span><span class=w>
-</span><span class=w>    </span><span class=nt>plural</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicies</span><span class=w>
-</span><span class=w>    </span><span class=nt>singular</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicy</span><span class=w>
-</span><span class=w>  </span><span class=nt>scope</span><span class=p>:</span><span class=w> </span><span class=l>Namespaced</span><span class=w>
-</span><span class=w>  </span><span class=nt>versions</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>v1alpha1</span><span class=w>
-</span><span class=w>    </span><span class=nt>schema</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>openAPIV3Schema</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy is the Schema for the rebootpolicies API</span><span class=w>
-</span><span class=w>        </span><span class=nt>properties</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>apiVersion</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;APIVersion defines the versioned schema of this representation
-</span><span class=s1>              of an object. Servers should convert recognized schemas to the latest
-</span><span class=s1>              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources&#39;</span><span class=w>
-</span><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
-</span><span class=w>          </span><span class=nt>kind</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;Kind is a string value representing the REST resource this
-</span><span class=s1>              object represents. Servers may infer this from the endpoint the client
-</span><span class=s1>              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds&#39;</span><span class=w>
-</span><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
-</span><span class=w>          </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
-</span><span class=w>          </span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicySpec defines the desired state of RebootPolicy</span><span class=w>
-</span><span class=w>            </span><span class=nt>properties</span><span class=p>:</span><span class=w>
-</span><span class=w>              </span><span class=nt>foo</span><span class=p>:</span><span class=w>
-</span><span class=w>                </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>Foo is an example field of RebootPolicy. Edit rebootpolicy_types.go</span><span class=w>
-</span><span class=w>                  </span><span class=l>to remove/update</span><span class=w>
-</span><span class=w>                </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
-</span><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
-</span><span class=w>          </span><span class=nt>status</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicyStatus defines the observed state of RebootPolicy</span><span class=w>
-</span><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
-</span><span class=w>        </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
-</span><span class=w>    </span><span class=nt>subresources</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>status</span><span class=p>:</span><span class=w> </span>{}<span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><p>有了 RebootPolicy CRD，我们可以应用 config/samples 下的 CR：<code>kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml</code>。可以看到一个名为 rebootpolicy-sample 的 CR 已成功创建。我们可以像访问 K8s 内置资源一样，操作该自定义资源。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># kubectl get crd rebootpolicies.autoreboot.my.domain -oyaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apiextensions.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CustomResourceDefinition</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicies.autoreboot.my.domain</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>group</span><span class=p>:</span><span class=w> </span><span class=l>autoreboot.my.domain</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>names</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>listKind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicyList</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>plural</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicies</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>singular</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>scope</span><span class=p>:</span><span class=w> </span><span class=l>Namespaced</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>versions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>schema</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>openAPIV3Schema</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy is the Schema for the rebootpolicies API</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>properties</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>apiVersion</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;APIVersion defines the versioned schema of this representation
+</span></span></span><span class=line><span class=cl><span class=s1>              of an object. Servers should convert recognized schemas to the latest
+</span></span></span><span class=line><span class=cl><span class=s1>              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>kind</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;Kind is a string value representing the REST resource this
+</span></span></span><span class=line><span class=cl><span class=s1>              object represents. Servers may infer this from the endpoint the client
+</span></span></span><span class=line><span class=cl><span class=s1>              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicySpec defines the desired state of RebootPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>properties</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>foo</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>Foo is an example field of RebootPolicy. Edit rebootpolicy_types.go</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=l>to remove/update</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>string</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>status</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicyStatus defines the observed state of RebootPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>object</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>subresources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>status</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>有了 RebootPolicy CRD，我们可以应用 config/samples 下的 CR：<code>kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml</code>。可以看到一个名为 rebootpolicy-sample 的 CR 已成功创建。我们可以像访问 K8s 内置资源一样，操作该自定义资源。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -311,31 +251,27 @@ kubebuilder init --domain my.domain --repo my.domain/autorebooter
 </span><span class=lnt>17
 </span><span class=lnt>18
 </span><span class=lnt>19
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 通过 kubectl 访问</span>
-$ kubectl get rebootpolicies rebootpolicy-sample
-NAME                  AGE
-rebootpolicy-sample   2m3s
-
-<span class=c1># 通过 K8s API 访问</span>
-$ kubectl get --raw /apis/autoreboot.my.domain/v1alpha1/namespaces/default/rebootpolicies/rebootpolicy-sample
-apiVersion: autoreboot.my.domain/v1alpha1
-kind: RebootPolicy
-metadata:
-  annotations:
-    kubectl.kubernetes.io/last-applied-configuration: <span class=p>|</span>
-      <span class=o>{</span><span class=s2>&#34;apiVersion&#34;</span>:<span class=s2>&#34;autoreboot.my.domain/v1alpha1&#34;</span>,<span class=s2>&#34;kind&#34;</span>:<span class=s2>&#34;RebootPolicy&#34;</span>,<span class=s2>&#34;metadata&#34;</span>:<span class=o>{</span><span class=s2>&#34;annotations&#34;</span>:<span class=o>{}</span>,<span class=s2>&#34;name&#34;</span>:<span class=s2>&#34;rebootpolicy-sample&#34;</span>,<span class=s2>&#34;namespace&#34;</span>:<span class=s2>&#34;default&#34;</span><span class=o>}</span>,<span class=s2>&#34;spec&#34;</span>:null<span class=o>}</span>
-  creationTimestamp: <span class=s2>&#34;2022-01-17T03:09:17Z&#34;</span>
-  generation: <span class=m>1</span>
-  name: rebootpolicy-sample
-  namespace: default
-  resourceVersion: <span class=s2>&#34;214734&#34;</span>
-  uid: 208c992e-f134-470d-8bc8-97191c3a6c4f
-</code></pre></td></tr></table>
-</div>
-</div><p>Operator 也是通过访问 kube-apiserver 获取 CR 的状态。本地测试运行 Operator 可以使用 <code>make run</code> 命令（虽然现在 Operator 代码里没有任何业务逻辑）。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 通过 kubectl 访问</span>
+</span></span><span class=line><span class=cl>$ kubectl get rebootpolicies rebootpolicy-sample
+</span></span><span class=line><span class=cl>NAME                  AGE
+</span></span><span class=line><span class=cl>rebootpolicy-sample   2m3s
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 通过 K8s API 访问</span>
+</span></span><span class=line><span class=cl>$ kubectl get --raw /apis/autoreboot.my.domain/v1alpha1/namespaces/default/rebootpolicies/rebootpolicy-sample
+</span></span><span class=line><span class=cl>apiVersion: autoreboot.my.domain/v1alpha1
+</span></span><span class=line><span class=cl>kind: RebootPolicy
+</span></span><span class=line><span class=cl>metadata:
+</span></span><span class=line><span class=cl>  annotations:
+</span></span><span class=line><span class=cl>    kubectl.kubernetes.io/last-applied-configuration: <span class=p>|</span>
+</span></span><span class=line><span class=cl>      <span class=o>{</span><span class=s2>&#34;apiVersion&#34;</span>:<span class=s2>&#34;autoreboot.my.domain/v1alpha1&#34;</span>,<span class=s2>&#34;kind&#34;</span>:<span class=s2>&#34;RebootPolicy&#34;</span>,<span class=s2>&#34;metadata&#34;</span>:<span class=o>{</span><span class=s2>&#34;annotations&#34;</span>:<span class=o>{}</span>,<span class=s2>&#34;name&#34;</span>:<span class=s2>&#34;rebootpolicy-sample&#34;</span>,<span class=s2>&#34;namespace&#34;</span>:<span class=s2>&#34;default&#34;</span><span class=o>}</span>,<span class=s2>&#34;spec&#34;</span>:null<span class=o>}</span>
+</span></span><span class=line><span class=cl>  creationTimestamp: <span class=s2>&#34;2022-01-17T03:09:17Z&#34;</span>
+</span></span><span class=line><span class=cl>  generation: <span class=m>1</span>
+</span></span><span class=line><span class=cl>  name: rebootpolicy-sample
+</span></span><span class=line><span class=cl>  namespace: default
+</span></span><span class=line><span class=cl>  resourceVersion: <span class=s2>&#34;214734&#34;</span>
+</span></span><span class=line><span class=cl>  uid: 208c992e-f134-470d-8bc8-97191c3a6c4f
+</span></span></code></pre></td></tr></table></div></div><p>Operator 也是通过访问 kube-apiserver 获取 CR 的状态。本地测试运行 Operator 可以使用 <code>make run</code> 命令（虽然现在 Operator 代码里没有任何业务逻辑）。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -348,24 +284,19 @@ metadata:
 </span><span class=lnt> 9
 </span><span class=lnt>10
 </span><span class=lnt>11
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>/Users/xxx/GolandProjects/autorebooter/bin/controller-gen rbac:roleName<span class=o>=</span>manager-role crd webhook <span class=nv>paths</span><span class=o>=</span><span class=s2>&#34;./...&#34;</span> output:crd:artifacts:config<span class=o>=</span>config/crd/bases
-/Users/xxx/GolandProjects/autorebooter/bin/controller-gen object:headerFile<span class=o>=</span><span class=s2>&#34;hack/boilerplate.go.txt&#34;</span> <span class=nv>paths</span><span class=o>=</span><span class=s2>&#34;./...&#34;</span>
-go fmt ./...
-go vet ./...
-go run ./main.go
-2022-01-17T11:24:56.834+0800    INFO    controller-runtime.metrics      metrics server is starting to listen    <span class=o>{</span><span class=s2>&#34;addr&#34;</span>: <span class=s2>&#34;:8080&#34;</span><span class=o>}</span>
-2022-01-17T11:24:56.835+0800    INFO    setup   starting manager
-2022-01-17T11:24:56.835+0800    INFO    starting metrics server <span class=o>{</span><span class=s2>&#34;path&#34;</span>: <span class=s2>&#34;/metrics&#34;</span><span class=o>}</span>
-2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting EventSource    <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span>, <span class=s2>&#34;source&#34;</span>: <span class=s2>&#34;kind source: /, Kind=&#34;</span><span class=o>}</span>
-2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting Controller     <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span><span class=o>}</span>
-2022-01-17T11:24:56.937+0800    INFO    controller.rebootpolicy Starting workers        <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span>, <span class=s2>&#34;worker count&#34;</span>: 1<span class=o>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=定义自定义资源>定义自定义资源</h3>
-<p>根据业务需求，我们定义如下 CR。自定义资源 RebootPolicy 的 spec 字段由两部分组成：target 和 policies 数组。target 引用一个期望根据重启策略自动重启的应用，policies 定义一组重启触发策略。每一个触发器是一个探针，设计上参考了 Pod 的存活探针。示例中定义了一个重启触发策略 policy-1，它每隔 5 秒执行 Operator 里 /policies 目录下挂载的 diff.sh 脚本（连接、读取 MySQL 表字段值并与上一次的值比较）。一旦脚本退出码不为 0，重启 target 引用的工作负载。重启方式类似与 kubectl rollout restart 修改 .spec.template.metadata.annotations 字段 <code>kubectl.kubernetes.io/restartedAt: "2022-01-17T11:55:27+08:00"</code>。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>/Users/xxx/GolandProjects/autorebooter/bin/controller-gen rbac:roleName<span class=o>=</span>manager-role crd webhook <span class=nv>paths</span><span class=o>=</span><span class=s2>&#34;./...&#34;</span> output:crd:artifacts:config<span class=o>=</span>config/crd/bases
+</span></span><span class=line><span class=cl>/Users/xxx/GolandProjects/autorebooter/bin/controller-gen object:headerFile<span class=o>=</span><span class=s2>&#34;hack/boilerplate.go.txt&#34;</span> <span class=nv>paths</span><span class=o>=</span><span class=s2>&#34;./...&#34;</span>
+</span></span><span class=line><span class=cl>go fmt ./...
+</span></span><span class=line><span class=cl>go vet ./...
+</span></span><span class=line><span class=cl>go run ./main.go
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.834+0800    INFO    controller-runtime.metrics      metrics server is starting to listen    <span class=o>{</span><span class=s2>&#34;addr&#34;</span>: <span class=s2>&#34;:8080&#34;</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.835+0800    INFO    setup   starting manager
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.835+0800    INFO    starting metrics server <span class=o>{</span><span class=s2>&#34;path&#34;</span>: <span class=s2>&#34;/metrics&#34;</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting EventSource    <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span>, <span class=s2>&#34;source&#34;</span>: <span class=s2>&#34;kind source: /, Kind=&#34;</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.835+0800    INFO    controller.rebootpolicy Starting Controller     <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>2022-01-17T11:24:56.937+0800    INFO    controller.rebootpolicy Starting workers        <span class=o>{</span><span class=s2>&#34;reconciler group&#34;</span>: <span class=s2>&#34;autoreboot.my.domain&#34;</span>, <span class=s2>&#34;reconciler kind&#34;</span>: <span class=s2>&#34;RebootPolicy&#34;</span>, <span class=s2>&#34;worker count&#34;</span>: 1<span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=定义自定义资源>定义自定义资源</h3><p>根据业务需求，我们定义如下 CR。自定义资源 RebootPolicy 的 spec 字段由两部分组成：target 和 policies 数组。target 引用一个期望根据重启策略自动重启的应用，policies 定义一组重启触发策略。每一个触发器是一个探针，设计上参考了 Pod 的存活探针。示例中定义了一个重启触发策略 policy-1，它每隔 5 秒执行 Operator 里 /policies 目录下挂载的 diff.sh 脚本（连接、读取 MySQL 表字段值并与上一次的值比较）。一旦脚本退出码不为 0，重启 target 引用的工作负载。重启方式类似与 kubectl rollout restart 修改 .spec.template.metadata.annotations 字段 <code>kubectl.kubernetes.io/restartedAt: "2022-01-17T11:55:27+08:00"</code>。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -384,29 +315,25 @@ go run ./main.go
 </span><span class=lnt>15
 </span><span class=lnt>16
 </span><span class=lnt>17
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>autorebooting.demo.netease.com/v1alpha1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicy-sample</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>target</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
-</span><span class=w>    </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
-</span><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>nginx</span><span class=w>
-</span><span class=w>  </span><span class=nt>policies</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>policy-1</span><span class=w>
-</span><span class=w>    </span><span class=nt>comment</span><span class=p>:</span><span class=w> </span><span class=l>xxx</span><span class=w>
-</span><span class=w>    </span><span class=nt>trigger</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>probe</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>exec</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;bash&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;./scripts/diff.sh&#34;</span><span class=p>]</span><span class=w>
-</span><span class=w>        </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><p>回到 api/valpha1/rebootpolicy_types.go 代码，修改 RebootPolicySpec 结构体，增加 Target 和 Policies 字段：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>autorebooting.demo.netease.com/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>RebootPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>rebootpolicy-sample</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>target</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>nginx</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>policies</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>policy-1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>comment</span><span class=p>:</span><span class=w> </span><span class=l>xxx</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>trigger</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>probe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>exec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;bash&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;./scripts/diff.sh&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>回到 api/valpha1/rebootpolicy_types.go 代码，修改 RebootPolicySpec 结构体，增加 Target 和 Policies 字段：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -437,43 +364,37 @@ go run ./main.go
 </span><span class=lnt>27
 </span><span class=lnt>28
 </span><span class=lnt>29
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
-
-<span class=c1>// RebootPolicySpec defines the desired state of RebootPolicy
-</span><span class=c1></span><span class=kd>type</span> <span class=nx>RebootPolicySpec</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=c1>// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-</span><span class=c1></span>    <span class=c1>// Important: Run &#34;make&#34; to regenerate code after modifying this file
-</span><span class=c1></span>
-    <span class=nx>Target</span>   <span class=nx>Target</span>   <span class=s>`json:&#34;target,omitempty&#34;`</span>
-    <span class=nx>Policies</span> <span class=p>[]</span><span class=nx>Policy</span> <span class=s>`json:&#34;policies,omitempty&#34;`</span>
-<span class=p>}</span>
-
-<span class=kd>type</span> <span class=nx>Target</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=nx>metav1</span><span class=p>.</span><span class=nx>TypeMeta</span> <span class=s>`json:&#34;,inline&#34;`</span>
-    <span class=nx>Name</span>            <span class=kt>string</span> <span class=s>`json:&#34;name,omitempty&#34;`</span>
-    <span class=c1>// - 表示转 JSON 时忽略该字段。
-</span><span class=c1></span>    <span class=c1>// 本示例中 target 都默认存在于与 CR 同命名空间下。
-</span><span class=c1></span>    <span class=c1>// 增加该字段仅用于辅助编程。
-</span><span class=c1></span>    <span class=nx>Namespace</span>       <span class=kt>string</span> <span class=s>`json:&#34;-&#34;`</span> 
-<span class=p>}</span>
-
-<span class=kd>type</span> <span class=nx>Policy</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=nx>Name</span>    <span class=kt>string</span>  <span class=s>`json:&#34;name,omitempty&#34;`</span>
-    <span class=nx>Comment</span> <span class=kt>string</span>  <span class=s>`json:&#34;comment,omitempty&#34;`</span>
-    <span class=nx>Trigger</span> <span class=nx>Trigger</span> <span class=s>`json:&#34;trigger,omitempty&#34;`</span>
-<span class=p>}</span>
-
-<span class=kd>type</span> <span class=nx>Trigger</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=nx>Probe</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span> <span class=s>`json:&#34;probe,omitempty&#34;`</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>重新 <code>make install</code> 安装 CRD。<code>make install</code> 会调用 <code>make manifests</code> 命令生成新的深拷贝代码以及更新后的 CRD YAML。</p>
-<h3 id=编写控制器>编写控制器</h3>
-<p>控制器本身是一个无限循环进程，一旦监听到 CR 的创建、修改、删除就会触发 controllers/rebootpolicy_controller.go 控制器代码里的调协函数 Reconcile()。所以业务逻辑都应该放在 Reconcile 里。后续文章我们会详细介绍 Kubebuilder 生成的其他模板代码的含义以及更多最佳实践。我们在 Reconcile 里编写代码如下：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>import</span> <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// RebootPolicySpec defines the desired state of RebootPolicy
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>RebootPolicySpec</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// Important: Run &#34;make&#34; to regenerate code after modifying this file
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>    <span class=nx>Target</span>   <span class=nx>Target</span>   <span class=s>`json:&#34;target,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Policies</span> <span class=p>[]</span><span class=nx>Policy</span> <span class=s>`json:&#34;policies,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Target</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>metav1</span><span class=p>.</span><span class=nx>TypeMeta</span> <span class=s>`json:&#34;,inline&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Name</span>            <span class=kt>string</span> <span class=s>`json:&#34;name,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// - 表示转 JSON 时忽略该字段。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 本示例中 target 都默认存在于与 CR 同命名空间下。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 增加该字段仅用于辅助编程。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>Namespace</span>       <span class=kt>string</span> <span class=s>`json:&#34;-&#34;`</span> 
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Policy</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Name</span>    <span class=kt>string</span>  <span class=s>`json:&#34;name,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Comment</span> <span class=kt>string</span>  <span class=s>`json:&#34;comment,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Trigger</span> <span class=nx>Trigger</span> <span class=s>`json:&#34;trigger,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Trigger</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Probe</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span> <span class=s>`json:&#34;probe,omitempty&#34;`</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>重新 <code>make install</code> 安装 CRD。<code>make install</code> 会调用 <code>make manifests</code> 命令生成新的深拷贝代码以及更新后的 CRD YAML。</p><h3 id=编写控制器>编写控制器</h3><p>控制器本身是一个无限循环进程，一旦监听到 CR 的创建、修改、删除就会触发 controllers/rebootpolicy_controller.go 控制器代码里的调协函数 Reconcile()。所以业务逻辑都应该放在 Reconcile 里。后续文章我们会详细介绍 Kubebuilder 生成的其他模板代码的含义以及更多最佳实践。我们在 Reconcile 里编写代码如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -504,42 +425,37 @@ go run ./main.go
 </span><span class=lnt>27
 </span><span class=lnt>28
 </span><span class=lnt>29
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>import</span> <span class=nx>prober</span> <span class=s>&#34;my.domain/autorebooter/pkg&#34;</span>
-
-<span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>RebootPolicyReconciler</span><span class=p>)</span> <span class=nf>Reconcile</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>req</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>(</span><span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
-    <span class=nx>_</span> <span class=p>=</span> <span class=nx>log</span><span class=p>.</span><span class=nf>FromContext</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
-
-    <span class=c1>// TODO(user): your logic here
-</span><span class=c1></span>    <span class=c1>// CR 事件触发 Reconcile。
-</span><span class=c1></span>    <span class=c1>// 第一步，先获取 CR 对象
-</span><span class=c1></span>    <span class=nx>rp</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>autorebooterv1alpha1</span><span class=p>.</span><span class=nx>RebootPolicy</span><span class=p>{}</span>
-    <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>req</span><span class=p>.</span><span class=nx>NamespacedName</span><span class=p>,</span> <span class=nx>rp</span><span class=p>)</span>
-    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-        <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=nx>err</span>
-    <span class=p>}</span>
-    <span class=c1>// 第二步，拿到要重启的目标工作负载
-</span><span class=c1></span>    <span class=c1>// 并默认设置该工作负载在与 CR 同名的命名空间下
-</span><span class=c1></span>    <span class=nx>t</span> <span class=o>:=</span> <span class=nx>rp</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Target</span>
-    <span class=nx>t</span><span class=p>.</span><span class=nx>Namespace</span> <span class=p>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>Namespace</span>
-
-    <span class=c1>// 第三步，初始化探针
-</span><span class=c1></span>    <span class=c1>// 实现上参考了 kubelet probe_manager 源码
-</span><span class=c1></span>    <span class=nx>prober</span><span class=p>.</span><span class=nf>Init</span><span class=p>(</span><span class=nx>r</span><span class=p>,</span> <span class=nx>t</span><span class=p>)</span>
-    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>p</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>rp</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Policies</span> <span class=p>{</span>
-        <span class=c1>// 启动后台 goroutine，周期性地探测，
-</span><span class=c1></span>        <span class=c1>// 并根据策略重启执行重启
-</span><span class=c1></span>        <span class=nx>prober</span><span class=p>.</span><span class=nf>AddProbe</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>p</span><span class=p>)</span>
-    <span class=p>}</span>
-
-    <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=kc>nil</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>一旦触发 Reconcile()，代码执行四步操作：第一步，拿到最新的 CR，底层原理上并不是通过访问 kube-apiserver 从 etcd 拿数据，而是使用本地缓存，这样避免频繁与 kube-apiserver 通信；第二步，从 CR 获取我们要实现自动重启的目标工作负载；第三步，初始化探针管理，并根据定义的重启探针策略，创建后台探针 goroutine 周期性地执行探针检测，并按需要重启目标应用（打 annotation 补丁）。这里写回操作是请求发往 kube-apiserver。</p>
-<p>prober.Init 和 prober.AddProbe 是我们定义的代码，参考了 kubelet probe_manager 源码。代码可以放在 /pkg 目录下 probe_manager.go 和 worker.go。在 probe_manager.go 定义了一个内部 probe manager，调用 Init 函数初始化该 manager；调用 AddProbe 则会启动一个 worker 协程，并加入到 workers 数组中。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>import</span> <span class=nx>prober</span> <span class=s>&#34;my.domain/autorebooter/pkg&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>RebootPolicyReconciler</span><span class=p>)</span> <span class=nf>Reconcile</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>req</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>(</span><span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>_</span> <span class=p>=</span> <span class=nx>log</span><span class=p>.</span><span class=nf>FromContext</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// TODO(user): your logic here
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// CR 事件触发 Reconcile。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 第一步，先获取 CR 对象
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>rp</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>autorebooterv1alpha1</span><span class=p>.</span><span class=nx>RebootPolicy</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>req</span><span class=p>.</span><span class=nx>NamespacedName</span><span class=p>,</span> <span class=nx>rp</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 第二步，拿到要重启的目标工作负载
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 并默认设置该工作负载在与 CR 同名的命名空间下
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>t</span> <span class=o>:=</span> <span class=nx>rp</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Target</span>
+</span></span><span class=line><span class=cl>    <span class=nx>t</span><span class=p>.</span><span class=nx>Namespace</span> <span class=p>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>Namespace</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 第三步，初始化探针
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 实现上参考了 kubelet probe_manager 源码
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>prober</span><span class=p>.</span><span class=nf>Init</span><span class=p>(</span><span class=nx>r</span><span class=p>,</span> <span class=nx>t</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>p</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>rp</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Policies</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 启动后台 goroutine，周期性地探测，
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// 并根据策略重启执行重启
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>prober</span><span class=p>.</span><span class=nf>AddProbe</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>p</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>一旦触发 Reconcile()，代码执行四步操作：第一步，拿到最新的 CR，底层原理上并不是通过访问 kube-apiserver 从 etcd 拿数据，而是使用本地缓存，这样避免频繁与 kube-apiserver 通信；第二步，从 CR 获取我们要实现自动重启的目标工作负载；第三步，初始化探针管理，并根据定义的重启探针策略，创建后台探针 goroutine 周期性地执行探针检测，并按需要重启目标应用（打 annotation 补丁）。这里写回操作是请求发往 kube-apiserver。</p><p>prober.Init 和 prober.AddProbe 是我们定义的代码，参考了 kubelet probe_manager 源码。代码可以放在 /pkg 目录下 probe_manager.go 和 worker.go。在 probe_manager.go 定义了一个内部 probe manager，调用 Init 函数初始化该 manager；调用 AddProbe 则会启动一个 worker 协程，并加入到 workers 数组中。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -574,45 +490,41 @@ go run ./main.go
 </span><span class=lnt>31
 </span><span class=lnt>32
 </span><span class=lnt>33
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// probe_manager.go
-</span><span class=c1></span>
-<span class=kd>type</span> <span class=nx>manager</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=nx>client</span>  <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
-    <span class=nx>workers</span> <span class=p>[]</span><span class=nx>worker</span>
-    <span class=nx>target</span>  <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span>
-<span class=p>}</span>
-
-<span class=kd>var</span> <span class=p>(</span>
-    <span class=nx>once</span>            <span class=nx>sync</span><span class=p>.</span><span class=nx>Once</span>
-    <span class=nx>internalManager</span> <span class=o>*</span><span class=nx>manager</span>
-<span class=p>)</span>
-
-<span class=kd>func</span> <span class=nf>Init</span><span class=p>(</span><span class=nx>c</span> <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span><span class=p>,</span> <span class=nx>t</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span><span class=p>)</span> <span class=p>{</span>
-    <span class=nx>once</span><span class=p>.</span><span class=nf>Do</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-        <span class=nx>internalManager</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>manager</span><span class=p>{</span>
-            <span class=nx>client</span><span class=p>:</span>  <span class=nx>c</span><span class=p>,</span>
-            <span class=nx>workers</span><span class=p>:</span> <span class=p>[]</span><span class=nx>worker</span><span class=p>{},</span>
-        <span class=p>}</span>
-    <span class=p>})</span>
-
-    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>w</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>{</span>
-        <span class=nx>w</span><span class=p>.</span><span class=nf>stop</span><span class=p>()</span>
-    <span class=p>}</span>
-    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>=</span> <span class=p>[]</span><span class=nx>worker</span><span class=p>{}</span>
-    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>target</span> <span class=p>=</span> <span class=nx>t</span>
-<span class=p>}</span>
-
-<span class=kd>func</span> <span class=nf>AddProbe</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>p</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Policy</span><span class=p>)</span> <span class=p>{</span>
-    <span class=nx>w</span> <span class=o>:=</span> <span class=nf>newWorker</span><span class=p>(</span><span class=nx>internalManager</span><span class=p>.</span><span class=nx>client</span><span class=p>,</span> <span class=nx>internalManager</span><span class=p>.</span><span class=nx>target</span><span class=p>,</span> <span class=nx>p</span><span class=p>.</span><span class=nx>Trigger</span><span class=p>.</span><span class=nx>Probe</span><span class=p>)</span>
-    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span><span class=p>,</span> <span class=nx>w</span><span class=p>)</span>
-    <span class=k>go</span> <span class=nx>w</span><span class=p>.</span><span class=nf>run</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>worker.go 代码管理 worker 后台协程的生命周期。run() 中会先做 doProbe 探测，比如执行 exec 探针运行 shell 脚本。如果返回码不为 0，则认为需要重启并调用 rolloutRestart()。rolloutRestart 先确定目标工作负载的 API 类型（GVK），然后执行 Patch 操作更新。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// probe_manager.go
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>manager</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>client</span>  <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
+</span></span><span class=line><span class=cl>    <span class=nx>workers</span> <span class=p>[]</span><span class=nx>worker</span>
+</span></span><span class=line><span class=cl>    <span class=nx>target</span>  <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=nx>once</span>            <span class=nx>sync</span><span class=p>.</span><span class=nx>Once</span>
+</span></span><span class=line><span class=cl>    <span class=nx>internalManager</span> <span class=o>*</span><span class=nx>manager</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>Init</span><span class=p>(</span><span class=nx>c</span> <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span><span class=p>,</span> <span class=nx>t</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>once</span><span class=p>.</span><span class=nf>Do</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>internalManager</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>manager</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>client</span><span class=p>:</span>  <span class=nx>c</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>workers</span><span class=p>:</span> <span class=p>[]</span><span class=nx>worker</span><span class=p>{},</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>w</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>w</span><span class=p>.</span><span class=nf>stop</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>=</span> <span class=p>[]</span><span class=nx>worker</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>target</span> <span class=p>=</span> <span class=nx>t</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>AddProbe</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>p</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Policy</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>w</span> <span class=o>:=</span> <span class=nf>newWorker</span><span class=p>(</span><span class=nx>internalManager</span><span class=p>.</span><span class=nx>client</span><span class=p>,</span> <span class=nx>internalManager</span><span class=p>.</span><span class=nx>target</span><span class=p>,</span> <span class=nx>p</span><span class=p>.</span><span class=nx>Trigger</span><span class=p>.</span><span class=nx>Probe</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>internalManager</span><span class=p>.</span><span class=nx>workers</span><span class=p>,</span> <span class=nx>w</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>go</span> <span class=nx>w</span><span class=p>.</span><span class=nf>run</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>worker.go 代码管理 worker 后台协程的生命周期。run() 中会先做 doProbe 探测，比如执行 exec 探针运行 shell 脚本。如果返回码不为 0，则认为需要重启并调用 rolloutRestart()。rolloutRestart 先确定目标工作负载的 API 类型（GVK），然后执行 Patch 操作更新。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>  1
 </span><span class=lnt>  2
@@ -717,118 +629,112 @@ go run ./main.go
 </span><span class=lnt>101
 </span><span class=lnt>102
 </span><span class=lnt>103
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// worker.go
-</span><span class=c1></span>
-<span class=kd>const</span> <span class=nx>patchJSON</span> <span class=p>=</span> <span class=s>`{&#34;spec&#34;: {&#34;template&#34;: {&#34;metadata&#34;: {&#34;annotations&#34;: {&#34;autorebooter.my.domain/restartedAt&#34;: &#34;%s&#34;}}}}}`</span>
-
-<span class=kd>type</span> <span class=nx>worker</span> <span class=kd>struct</span> <span class=p>{</span>
-    <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
-    <span class=nx>stopCh</span> <span class=kd>chan</span> <span class=kd>struct</span><span class=p>{}</span>
-    <span class=c1>// Describes the probe configuration (read-only)
-</span><span class=c1></span>    <span class=nx>target</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span>
-    <span class=nx>spec</span>   <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span>
-<span class=p>}</span>
-
-<span class=kd>func</span> <span class=nf>newWorker</span><span class=p>(</span><span class=nx>c</span> <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span><span class=p>,</span> <span class=nx>target</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span><span class=p>,</span> <span class=nx>spec</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span><span class=p>)</span> <span class=nx>worker</span> <span class=p>{</span>
-    <span class=nx>stopChan</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span>
-    <span class=k>return</span> <span class=nx>worker</span><span class=p>{</span><span class=nx>c</span><span class=p>,</span> <span class=nx>stopChan</span><span class=p>,</span> <span class=nx>target</span><span class=p>,</span> <span class=nx>spec</span><span class=p>}</span>
-<span class=p>}</span>
-
-<span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>run</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>{</span>
-    <span class=nx>l</span> <span class=o>:=</span> <span class=nx>log</span><span class=p>.</span><span class=nf>FromContext</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
-
-    <span class=nx>probeTickerPeriod</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Duration</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>PeriodSeconds</span><span class=p>)</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span>
-    <span class=nx>probeTicker</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>NewTicker</span><span class=p>(</span><span class=nx>probeTickerPeriod</span><span class=p>)</span>
-
-<span class=nx>probeLoop</span><span class=p>:</span>
-    <span class=k>for</span> <span class=p>{</span>
-        <span class=nx>shouldReboot</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>w</span><span class=p>.</span><span class=nf>doProbe</span><span class=p>()</span>
-        <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-            <span class=nx>l</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>err</span><span class=p>,</span> <span class=s>&#34;fail to probe&#34;</span><span class=p>)</span>
-        <span class=p>}</span>
-        <span class=k>if</span> <span class=nx>shouldReboot</span> <span class=p>{</span>
-            <span class=c1>// reboot target
-</span><span class=c1></span>            <span class=nx>err</span> <span class=p>=</span> <span class=nx>w</span><span class=p>.</span><span class=nf>rolloutRestart</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
-            <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-                <span class=nx>l</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>err</span><span class=p>,</span> <span class=s>&#34;fail to rollout restart&#34;</span><span class=p>)</span>
-            <span class=p>}</span>
-        <span class=p>}</span>
-
-        <span class=c1>// Wait for next probe tick.
-</span><span class=c1></span>        <span class=k>select</span> <span class=p>{</span>
-        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>ctx</span><span class=p>.</span><span class=nf>Done</span><span class=p>():</span>
-            <span class=k>break</span> <span class=nx>probeLoop</span>
-        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>w</span><span class=p>.</span><span class=nx>stopCh</span><span class=p>:</span>
-            <span class=k>break</span> <span class=nx>probeLoop</span>
-        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>probeTicker</span><span class=p>.</span><span class=nx>C</span><span class=p>:</span>
-            <span class=c1>// continue
-</span><span class=c1></span>        <span class=p>}</span>
-    <span class=p>}</span>
-<span class=p>}</span>
-
-<span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>doProbe</span><span class=p>()</span> <span class=p>(</span><span class=kt>bool</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
-    <span class=kd>var</span> <span class=nx>result</span> <span class=nx>probe</span><span class=p>.</span><span class=nx>Result</span>
-    <span class=kd>var</span> <span class=nx>err</span> <span class=kt>error</span>
-    <span class=k>if</span> <span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-        <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span> <span class=p>{</span>
-            <span class=nx>p</span> <span class=o>:=</span> <span class=nx>execprobe</span><span class=p>.</span><span class=nf>New</span><span class=p>()</span>
-            <span class=nx>cmd</span> <span class=o>:=</span> <span class=nx>util</span><span class=p>.</span><span class=nf>New</span><span class=p>().</span><span class=nf>Command</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>[</span><span class=mi>1</span><span class=p>:]</span><span class=o>...</span><span class=p>)</span>
-            <span class=nx>result</span><span class=p>,</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=p>=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>Probe</span><span class=p>(</span><span class=nx>cmd</span><span class=p>)</span>
-        <span class=p>}</span>
-    <span class=p>}</span>
-    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-        <span class=k>return</span> <span class=kc>false</span><span class=p>,</span> <span class=nx>err</span>
-    <span class=p>}</span>
-	
-    <span class=k>return</span> <span class=nx>result</span> <span class=o>==</span> <span class=nx>probe</span><span class=p>.</span><span class=nx>Failure</span><span class=p>,</span> <span class=kc>nil</span>
-<span class=p>}</span>
-
-<span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>stop</span><span class=p>()</span> <span class=p>{</span>
-    <span class=k>select</span> <span class=p>{</span>
-    <span class=k>case</span> <span class=nx>w</span><span class=p>.</span><span class=nx>stopCh</span> <span class=o>&lt;-</span> <span class=kd>struct</span><span class=p>{}{}:</span>
-    <span class=k>default</span><span class=p>:</span> <span class=c1>// Non-blocking.
-</span><span class=c1></span>    <span class=p>}</span>
-<span class=p>}</span>
-
-<span class=c1>// inspired by kubectl rollout restart
-</span><span class=c1>// refer to https://github.com/kubernetes/kubectl/blob/release-1.16/pkg/polymorphichelpers/objectrestarter.go#L32
-</span><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>rolloutRestart</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
-    <span class=nx>targetGV</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>schema</span><span class=p>.</span><span class=nf>ParseGroupVersion</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>APIVersion</span><span class=p>)</span>
-    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
-        <span class=k>return</span> <span class=nx>err</span>
-    <span class=p>}</span>
-    <span class=nx>gvk</span> <span class=o>:=</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span>
-        <span class=nx>Group</span><span class=p>:</span>   <span class=nx>targetGV</span><span class=p>.</span><span class=nx>Group</span><span class=p>,</span>
-        <span class=nx>Version</span><span class=p>:</span> <span class=nx>targetGV</span><span class=p>.</span><span class=nx>Version</span><span class=p>,</span>
-        <span class=nx>Kind</span><span class=p>:</span>    <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Kind</span><span class=p>,</span>
-    <span class=p>}</span>
-
-    <span class=k>switch</span> <span class=nx>gvk</span> <span class=p>{</span>
-    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;Deployment&#34;</span><span class=p>}:</span>
-        <span class=c1>// Patch
-</span><span class=c1></span>        <span class=nx>obj</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>appv1</span><span class=p>.</span><span class=nx>Deployment</span><span class=p>{</span>
-            <span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
-                <span class=nx>Name</span><span class=p>:</span>      <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span>
-                <span class=nx>Namespace</span><span class=p>:</span> <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span>
-            <span class=p>},</span>
-        <span class=p>}</span>
-        <span class=nx>patchData</span> <span class=o>:=</span> <span class=p>[]</span><span class=nb>byte</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=nx>patchJSON</span><span class=p>,</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>().</span><span class=nf>Format</span><span class=p>(</span><span class=nx>time</span><span class=p>.</span><span class=nx>RFC3339</span><span class=p>)))</span>
-        <span class=k>return</span> <span class=nx>w</span><span class=p>.</span><span class=nf>Patch</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>obj</span><span class=p>,</span> <span class=nx>client</span><span class=p>.</span><span class=nf>RawPatch</span><span class=p>(</span><span class=nx>types</span><span class=p>.</span><span class=nx>StrategicMergePatchType</span><span class=p>,</span> <span class=nx>patchData</span><span class=p>))</span>
-    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;StatefulSet&#34;</span><span class=p>}:</span> <span class=c1>// todo
-</span><span class=c1></span>    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;DaemonSet&#34;</span><span class=p>}:</span> <span class=c1>// todo
-</span><span class=c1></span>    <span class=p>}</span>
-
-    <span class=k>return</span> <span class=kc>nil</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>至此，我们代码逻辑已完成，现在可以在本地 K8s 集群上测试（如，minikube）：</p>
-<ol>
-<li><code>make install & kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml</code> 安装 CRD 和 CR。在我们的 RebootPolicy 中设置了脚本路径为 ./scripts/diff.sh。这个脚本的内容是连接本地 mysql，访问比较 demo_tbl 表的 name 字段。</li>
-</ol>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// worker.go
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kd>const</span> <span class=nx>patchJSON</span> <span class=p>=</span> <span class=s>`{&#34;spec&#34;: {&#34;template&#34;: {&#34;metadata&#34;: {&#34;annotations&#34;: {&#34;autorebooter.my.domain/restartedAt&#34;: &#34;%s&#34;}}}}}`</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>worker</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
+</span></span><span class=line><span class=cl>    <span class=nx>stopCh</span> <span class=kd>chan</span> <span class=kd>struct</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// Describes the probe configuration (read-only)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>target</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span>
+</span></span><span class=line><span class=cl>    <span class=nx>spec</span>   <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>newWorker</span><span class=p>(</span><span class=nx>c</span> <span class=nx>client</span><span class=p>.</span><span class=nx>Client</span><span class=p>,</span> <span class=nx>target</span> <span class=nx>v1alpha1</span><span class=p>.</span><span class=nx>Target</span><span class=p>,</span> <span class=nx>spec</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Probe</span><span class=p>)</span> <span class=nx>worker</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>stopChan</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>worker</span><span class=p>{</span><span class=nx>c</span><span class=p>,</span> <span class=nx>stopChan</span><span class=p>,</span> <span class=nx>target</span><span class=p>,</span> <span class=nx>spec</span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>run</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>l</span> <span class=o>:=</span> <span class=nx>log</span><span class=p>.</span><span class=nf>FromContext</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>probeTickerPeriod</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Duration</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>PeriodSeconds</span><span class=p>)</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span>
+</span></span><span class=line><span class=cl>    <span class=nx>probeTicker</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>NewTicker</span><span class=p>(</span><span class=nx>probeTickerPeriod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>probeLoop</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>shouldReboot</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>w</span><span class=p>.</span><span class=nf>doProbe</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>l</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>err</span><span class=p>,</span> <span class=s>&#34;fail to probe&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>shouldReboot</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// reboot target
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>err</span> <span class=p>=</span> <span class=nx>w</span><span class=p>.</span><span class=nf>rolloutRestart</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>l</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>err</span><span class=p>,</span> <span class=s>&#34;fail to rollout restart&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// Wait for next probe tick.
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>select</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>ctx</span><span class=p>.</span><span class=nf>Done</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span> <span class=nx>probeLoop</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>w</span><span class=p>.</span><span class=nx>stopCh</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span> <span class=nx>probeLoop</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>probeTicker</span><span class=p>.</span><span class=nx>C</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// continue
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>doProbe</span><span class=p>()</span> <span class=p>(</span><span class=kt>bool</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>result</span> <span class=nx>probe</span><span class=p>.</span><span class=nx>Result</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>err</span> <span class=kt>error</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>p</span> <span class=o>:=</span> <span class=nx>execprobe</span><span class=p>.</span><span class=nf>New</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=nx>cmd</span> <span class=o>:=</span> <span class=nx>util</span><span class=p>.</span><span class=nf>New</span><span class=p>().</span><span class=nf>Command</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=nx>w</span><span class=p>.</span><span class=nx>spec</span><span class=p>.</span><span class=nx>Exec</span><span class=p>.</span><span class=nx>Command</span><span class=p>[</span><span class=mi>1</span><span class=p>:]</span><span class=o>...</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=nx>result</span><span class=p>,</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=p>=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>Probe</span><span class=p>(</span><span class=nx>cmd</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>false</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>result</span> <span class=o>==</span> <span class=nx>probe</span><span class=p>.</span><span class=nx>Failure</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>stop</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>select</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=nx>w</span><span class=p>.</span><span class=nx>stopCh</span> <span class=o>&lt;-</span> <span class=kd>struct</span><span class=p>{}{}:</span>
+</span></span><span class=line><span class=cl>    <span class=k>default</span><span class=p>:</span> <span class=c1>// Non-blocking.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// inspired by kubectl rollout restart
+</span></span></span><span class=line><span class=cl><span class=c1>// refer to https://github.com/kubernetes/kubectl/blob/release-1.16/pkg/polymorphichelpers/objectrestarter.go#L32
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>w</span> <span class=o>*</span><span class=nx>worker</span><span class=p>)</span> <span class=nf>rolloutRestart</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>targetGV</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>schema</span><span class=p>.</span><span class=nf>ParseGroupVersion</span><span class=p>(</span><span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>APIVersion</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>gvk</span> <span class=o>:=</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Group</span><span class=p>:</span>   <span class=nx>targetGV</span><span class=p>.</span><span class=nx>Group</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Version</span><span class=p>:</span> <span class=nx>targetGV</span><span class=p>.</span><span class=nx>Version</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Kind</span><span class=p>:</span>    <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Kind</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>switch</span> <span class=nx>gvk</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;Deployment&#34;</span><span class=p>}:</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// Patch
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>obj</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>appv1</span><span class=p>.</span><span class=nx>Deployment</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>Name</span><span class=p>:</span>      <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                <span class=nx>Namespace</span><span class=p>:</span> <span class=nx>w</span><span class=p>.</span><span class=nx>target</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=nx>patchData</span> <span class=o>:=</span> <span class=p>[]</span><span class=nb>byte</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=nx>patchJSON</span><span class=p>,</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>().</span><span class=nf>Format</span><span class=p>(</span><span class=nx>time</span><span class=p>.</span><span class=nx>RFC3339</span><span class=p>)))</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>w</span><span class=p>.</span><span class=nf>Patch</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>obj</span><span class=p>,</span> <span class=nx>client</span><span class=p>.</span><span class=nf>RawPatch</span><span class=p>(</span><span class=nx>types</span><span class=p>.</span><span class=nx>StrategicMergePatchType</span><span class=p>,</span> <span class=nx>patchData</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;StatefulSet&#34;</span><span class=p>}:</span> <span class=c1>// todo
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>case</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>{</span><span class=nx>Group</span><span class=p>:</span> <span class=s>&#34;apps&#34;</span><span class=p>,</span> <span class=nx>Version</span><span class=p>:</span> <span class=s>&#34;v1&#34;</span><span class=p>,</span> <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;DaemonSet&#34;</span><span class=p>}:</span> <span class=c1>// todo
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>至此，我们代码逻辑已完成，现在可以在本地 K8s 集群上测试（如，minikube）：</p><ol>
+<li><code>make install & kubectl apply -f config/samples/autoreboot_v1alpha1_rebootpolicy.yaml</code> 安装 CRD 和 CR。在我们的 RebootPolicy 中设置了脚本路径为 ./scripts/diff.sh。这个脚本的内容是连接本地 mysql，访问比较 demo_tbl 表的 name 字段。</li></ol><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -865,49 +771,44 @@ go run ./main.go
 </span><span class=lnt>33
 </span><span class=lnt>34
 </span><span class=lnt>35
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=cp>#!/bin/bash
-</span><span class=cp></span><span class=nv>HOST</span><span class=o>=</span>127.0.0.1
-<span class=nv>USER</span><span class=o>=</span>root
-<span class=nv>PASSWORD</span><span class=o>=</span>root
-<span class=nv>DATABASE_NAME</span><span class=o>=</span>demo
-<span class=nv>TABLE_NAME</span><span class=o>=</span>demo_tbl
-<span class=nv>OLDFILE</span><span class=o>=</span>oldout.tmp
-<span class=nv>NEWFILE</span><span class=o>=</span>newout.tmp
-
-<span class=c1># install mysql</span>
-which mysql
-<span class=k>if</span> <span class=o>[</span> <span class=nv>$?</span> !<span class=o>=</span> <span class=m>0</span> <span class=o>]</span> <span class=o>&amp;&amp;</span> <span class=o>[</span> <span class=nv>$IS_INSTALLING_MYSQL</span> <span class=o>==</span> <span class=m>1</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
-    apt-get install mysql-client -y
-    <span class=nb>export</span> <span class=nv>IS_INSTALLING_MYSQL</span><span class=o>=</span><span class=m>1</span>
-<span class=k>fi</span>
-
-<span class=c1># connect to mysql</span>
-mysql -h<span class=nv>$HOST</span> -u<span class=nv>$USER</span> -p<span class=nv>$PASSWORD</span> <span class=s>&lt;&lt; EOF &gt; $NEWFILE
-</span><span class=s>  USE $DATABASE_NAME;
-</span><span class=s>  SELECT name FROM $TABLE_NAME;
-</span><span class=s>EOF</span>
-
-<span class=c1># compare</span>
-<span class=k>if</span> <span class=o>[</span> -f <span class=nv>$OLDFILE</span> <span class=o>]</span>
-<span class=k>then</span>
-  diff <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span> &gt; /dev/null
-  <span class=nv>RET</span><span class=o>=</span><span class=nv>$?</span>
-  <span class=c1># promote new output to old</span>
-  mv <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span>
-  <span class=k>if</span> <span class=o>[</span> <span class=nv>$RET</span> !<span class=o>=</span> <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
-    <span class=nb>exit</span> <span class=m>1</span>
-  <span class=k>fi</span>
-<span class=k>else</span>
-  mv <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span>
-<span class=k>fi</span>
-</code></pre></td></tr></table>
-</div>
-</div><ol start=2>
-<li>准备本地 MySQL 环境（用户名/密码：root），部署目标应用（和 rebootpolicy-sample.spec.target 的描述一致）：</li>
-</ol>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=nv>HOST</span><span class=o>=</span>127.0.0.1
+</span></span><span class=line><span class=cl><span class=nv>USER</span><span class=o>=</span>root
+</span></span><span class=line><span class=cl><span class=nv>PASSWORD</span><span class=o>=</span>root
+</span></span><span class=line><span class=cl><span class=nv>DATABASE_NAME</span><span class=o>=</span>demo
+</span></span><span class=line><span class=cl><span class=nv>TABLE_NAME</span><span class=o>=</span>demo_tbl
+</span></span><span class=line><span class=cl><span class=nv>OLDFILE</span><span class=o>=</span>oldout.tmp
+</span></span><span class=line><span class=cl><span class=nv>NEWFILE</span><span class=o>=</span>newout.tmp
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># install mysql</span>
+</span></span><span class=line><span class=cl>which mysql
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> <span class=nv>$?</span> !<span class=o>=</span> <span class=m>0</span> <span class=o>]</span> <span class=o>&amp;&amp;</span> <span class=o>[</span> <span class=nv>$IS_INSTALLING_MYSQL</span> <span class=o>==</span> <span class=m>1</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>    apt-get install mysql-client -y
+</span></span><span class=line><span class=cl>    <span class=nb>export</span> <span class=nv>IS_INSTALLING_MYSQL</span><span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># connect to mysql</span>
+</span></span><span class=line><span class=cl>mysql -h<span class=nv>$HOST</span> -u<span class=nv>$USER</span> -p<span class=nv>$PASSWORD</span> <span class=s>&lt;&lt; EOF &gt; $NEWFILE
+</span></span></span><span class=line><span class=cl><span class=s>  USE $DATABASE_NAME;
+</span></span></span><span class=line><span class=cl><span class=s>  SELECT name FROM $TABLE_NAME;
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># compare</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> -f <span class=nv>$OLDFILE</span> <span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=k>then</span>
+</span></span><span class=line><span class=cl>  diff <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span> &gt; /dev/null
+</span></span><span class=line><span class=cl>  <span class=nv>RET</span><span class=o>=</span><span class=nv>$?</span>
+</span></span><span class=line><span class=cl>  <span class=c1># promote new output to old</span>
+</span></span><span class=line><span class=cl>  mv <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=o>[</span> <span class=nv>$RET</span> !<span class=o>=</span> <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>    <span class=nb>exit</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl>  <span class=k>fi</span>
+</span></span><span class=line><span class=cl><span class=k>else</span>
+</span></span><span class=line><span class=cl>  mv <span class=nv>$NEWFILE</span> <span class=nv>$OLDFILE</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span></code></pre></td></tr></table></div></div><ol start=2>
+<li>准备本地 MySQL 环境（用户名/密码：root），部署目标应用（和 rebootpolicy-sample.spec.target 的描述一致）：</li></ol><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -917,43 +818,29 @@ mysql -h<span class=nv>$HOST</span> -u<span class=nv>$USER</span> -p<span class=
 </span><span class=lnt>6
 </span><span class=lnt>7
 </span><span class=lnt>8
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=k>IF</span><span class=w> </span><span class=k>NOT</span><span class=w> </span><span class=k>EXISTS</span><span class=w> </span><span class=o>`</span><span class=n>demo_tbl</span><span class=o>`</span><span class=p>(</span><span class=w>
-</span><span class=w>    </span><span class=o>`</span><span class=n>id</span><span class=o>`</span><span class=w> </span><span class=nb>INT</span><span class=w> </span><span class=n>UNSIGNED</span><span class=w> </span><span class=n>AUTO_INCREMENT</span><span class=p>,</span><span class=w>
-</span><span class=w>    </span><span class=o>`</span><span class=n>name</span><span class=o>`</span><span class=w> </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>100</span><span class=p>)</span><span class=w> </span><span class=k>NOT</span><span class=w> </span><span class=k>NULL</span><span class=p>,</span><span class=w>
-</span><span class=w>    </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=w> </span><span class=p>(</span><span class=w> </span><span class=o>`</span><span class=n>id</span><span class=o>`</span><span class=w> </span><span class=p>)</span><span class=w>
-</span><span class=w></span><span class=p>)</span><span class=w>
-</span><span class=w>
-</span><span class=w></span><span class=k>INSERT</span><span class=w> </span><span class=k>INTO</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=p>(</span><span class=n>name</span><span class=p>)</span><span class=w> </span><span class=k>VALUES</span><span class=w> </span><span class=p>(</span><span class=s2>&#34;aaa&#34;</span><span class=p>);</span><span class=w>
-</span><span class=w></span><span class=k>INSERT</span><span class=w> </span><span class=k>INTO</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=p>(</span><span class=n>name</span><span class=p>)</span><span class=w> </span><span class=k>VALUES</span><span class=w> </span><span class=p>(</span><span class=s2>&#34;bbb&#34;</span><span class=p>);</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=k>IF</span><span class=w> </span><span class=k>NOT</span><span class=w> </span><span class=k>EXISTS</span><span class=w> </span><span class=o>`</span><span class=n>demo_tbl</span><span class=o>`</span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=o>`</span><span class=n>id</span><span class=o>`</span><span class=w> </span><span class=nb>INT</span><span class=w> </span><span class=n>UNSIGNED</span><span class=w> </span><span class=n>AUTO_INCREMENT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=o>`</span><span class=n>name</span><span class=o>`</span><span class=w> </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>100</span><span class=p>)</span><span class=w> </span><span class=k>NOT</span><span class=w> </span><span class=k>NULL</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=w> </span><span class=p>(</span><span class=w> </span><span class=o>`</span><span class=n>id</span><span class=o>`</span><span class=w> </span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>INSERT</span><span class=w> </span><span class=k>INTO</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=p>(</span><span class=n>name</span><span class=p>)</span><span class=w> </span><span class=k>VALUES</span><span class=w> </span><span class=p>(</span><span class=s2>&#34;aaa&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>INSERT</span><span class=w> </span><span class=k>INTO</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=p>(</span><span class=n>name</span><span class=p>)</span><span class=w> </span><span class=k>VALUES</span><span class=w> </span><span class=p>(</span><span class=s2>&#34;bbb&#34;</span><span class=p>);</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl create deployment nginx --image<span class=o>=</span>nginx:1.14.2 --replicas<span class=o>=</span><span class=m>3</span>  --port<span class=o>=</span><span class=m>80</span>
-</code></pre></td></tr></table>
-</div>
-</div><ol start=3>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create deployment nginx --image<span class=o>=</span>nginx:1.14.2 --replicas<span class=o>=</span><span class=m>3</span>  --port<span class=o>=</span><span class=m>80</span>
+</span></span></code></pre></td></tr></table></div></div><ol start=3>
 <li>
-<p><code>make run</code> 本地运行 Operator</p>
-</li>
-<li>
-<p>在 MySQL 中修改 name 列，观察 kubectl get po 可以看到 Pod 全部重启。</p>
-</li>
-</ol>
-<div class=highlight><div class=chroma>
+<p><code>make run</code> 本地运行 Operator</p></li><li>
+<p>在 MySQL 中修改 name 列，观察 kubectl get po 可以看到 Pod 全部重启。</p></li></ol><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=k>UPDATE</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s2>&#34;ccc&#34;</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>id</span><span class=o>=</span><span class=mi>1</span><span class=p>;</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>UPDATE</span><span class=w> </span><span class=n>demo_tbl</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s2>&#34;ccc&#34;</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>id</span><span class=o>=</span><span class=mi>1</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -962,24 +849,16 @@ mysql -h<span class=nv>$HOST</span> -u<span class=nv>$USER</span> -p<span class=
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl get po
-NAME                     READY   STATUS              RESTARTS   AGE
-nginx-56bc45d9f7-5kps5   1/1     Running             <span class=m>0</span>          2s
-nginx-56bc45d9f7-7f4zk   0/1     ContainerCreating   <span class=m>0</span>          0s
-nginx-6795d6456-hqm4r    1/1     Running             <span class=m>0</span>          62s
-nginx-6795d6456-p68wl    1/1     Running             <span class=m>0</span>          59s
-nginx-6795d6456-rklrt    1/1     Terminating         <span class=m>0</span>          60s
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=部署与-rbac>部署与 RBAC</h3>
-<p>测试通过后，可以打包 Operator 和 CR，CRD 到正式环境。Operator 以 Deployment 形式部署。但在部署到 Operator 到正式环境前，我们还需要额外部署 RBAC 资源，否则，查看 Operator 日志会发现 Operator 没有权限操作 Deployment API。我们在本地测试环境可以正常运行，是因为使用了集群管理员 kubeconfig，拥有对所有 K8s API 的访问权限。</p>
-<p>Kubernetes 使用基于角色的访问控制（role-based access control，RBAC）进行鉴权<sup id=fnref:5><a href=#fn:5 class=footnote-ref role=doc-noteref>5</a></sup>。我们的 Operator 使用了三种 RBAC 资源：ClusterRole，ClusterRoleBinding 和 ServiceAccount。三个 YAML 文件在 /config/rbac 目录下。ClusterRole 定义了允许访问的资源（如 apps.deployment）以及允许的操作（patch）。ServiceAccount 是挂载到Pod 里的服务账户（通过 Pod YAML 里 serviceAccountName 字段）。在没有指定 kubeconfig 文件路径的情况，Operator 默认使用服务账户里的 token（容器内路径：/var/run/secrets/kubernetes.io/serviceaccount/token）访问 kube-apiserver。ClusterRoleBinding 给 ServiceAccount 绑定一个 ClusterRole。</p>
-<blockquote>
-<p>Role 和 ClusterRole 的区别在于作用范围（scope），前者是操作指定命名空间下资源的角色，后者作用于整个集群所有命名空间。</p>
-</blockquote>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ kubectl get po
+</span></span><span class=line><span class=cl>NAME                     READY   STATUS              RESTARTS   AGE
+</span></span><span class=line><span class=cl>nginx-56bc45d9f7-5kps5   1/1     Running             <span class=m>0</span>          2s
+</span></span><span class=line><span class=cl>nginx-56bc45d9f7-7f4zk   0/1     ContainerCreating   <span class=m>0</span>          0s
+</span></span><span class=line><span class=cl>nginx-6795d6456-hqm4r    1/1     Running             <span class=m>0</span>          62s
+</span></span><span class=line><span class=cl>nginx-6795d6456-p68wl    1/1     Running             <span class=m>0</span>          59s
+</span></span><span class=line><span class=cl>nginx-6795d6456-rklrt    1/1     Terminating         <span class=m>0</span>          60s
+</span></span></code></pre></td></tr></table></div></div><h3 id=部署与-rbac>部署与 RBAC</h3><p>测试通过后，可以打包 Operator 和 CR，CRD 到正式环境。Operator 以 Deployment 形式部署。但在部署到 Operator 到正式环境前，我们还需要额外部署 RBAC 资源，否则，查看 Operator 日志会发现 Operator 没有权限操作 Deployment API。我们在本地测试环境可以正常运行，是因为使用了集群管理员 kubeconfig，拥有对所有 K8s API 的访问权限。</p><p>Kubernetes 使用基于角色的访问控制（role-based access control，RBAC）进行鉴权<sup id=fnref:5><a href=#fn:5 class=footnote-ref role=doc-noteref>5</a></sup>。我们的 Operator 使用了三种 RBAC 资源：ClusterRole，ClusterRoleBinding 和 ServiceAccount。三个 YAML 文件在 /config/rbac 目录下。ClusterRole 定义了允许访问的资源（如 apps.deployment）以及允许的操作（patch）。ServiceAccount 是挂载到Pod 里的服务账户（通过 Pod YAML 里 serviceAccountName 字段）。在没有指定 kubeconfig 文件路径的情况，Operator 默认使用服务账户里的 token（容器内路径：/var/run/secrets/kubernetes.io/serviceaccount/token）访问 kube-apiserver。ClusterRoleBinding 给 ServiceAccount 绑定一个 ClusterRole。</p><blockquote>
+<p>Role 和 ClusterRole 的区别在于作用范围（scope），前者是操作指定命名空间下资源的角色，后者作用于整个集群所有命名空间。</p></blockquote><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -1017,93 +896,67 @@ nginx-6795d6456-rklrt    1/1     Terminating         <span class=m>0</span>     
 </span><span class=lnt>34
 </span><span class=lnt>35
 </span><span class=lnt>36
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>controller-manager</span><span class=w>
-</span><span class=w></span><span class=nn>---</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-role</span><span class=w>
-</span><span class=w></span><span class=nt>rules</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>apps</span><span class=w>
-</span><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>deployments</span><span class=w>
-</span><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>patch</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>autoreboot.my.domain</span><span class=w>
-</span><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>rebootpolicies</span><span class=w>
-</span><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=l>get</span><span class=w>
-</span><span class=w>      </span>- <span class=l>list</span><span class=w>
-</span><span class=w>      </span>- <span class=l>watch</span><span class=w>
-</span><span class=w></span><span class=nn>---</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRoleBinding</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-rolebinding</span><span class=w>
-</span><span class=w></span><span class=nt>roleRef</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>apiGroup</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io</span><span class=w>
-</span><span class=w>  </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-role</span><span class=w>
-</span><span class=w></span><span class=nt>subjects</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
-</span><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>controller-manager</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><p>这些 RBAC 资源不需要手动创建。Kubebuilder 框架支持自动生成正确的 RBAC 资源 YAML，只需要在 rebootpolicy_controller.go 代码里加上以下 tag 即可，通过 <code>make manifests</code> 命令创建相关 YAML。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>controller-manager</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-role</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>rules</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>apps</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>deployments</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>patch</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>autoreboot.my.domain</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>rebootpolicies</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>get</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>list</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>watch</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRoleBinding</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-rolebinding</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>roleRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>apiGroup</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>manager-role</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>subjects</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>controller-manager</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这些 RBAC 资源不需要手动创建。Kubebuilder 框架支持自动生成正确的 RBAC 资源 YAML，只需要在 rebootpolicy_controller.go 代码里加上以下 tag 即可，通过 <code>make manifests</code> 命令创建相关 YAML。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>//+kubebuilder:rbac:groups=autoreboot.my.domain,resources=rebootpolicies,verbs=get;list;watch
-</span><span class=c1>//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=patch
-</span></code></pre></td></tr></table>
-</div>
-</div><p>至此，我们已全部介绍完 Operator 概念、Kubebuilder 框架以及如何实现一个 Operator。后续会介绍 Kubebuilder 架构、源码阅读以及 Operator 开发最佳实践。</p>
-<section class=footnotes role=doc-endnotes>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>//+kubebuilder:rbac:groups=autoreboot.my.domain,resources=rebootpolicies,verbs=get;list;watch
+</span></span></span><span class=line><span class=cl><span class=c1>//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=patch
+</span></span></span></code></pre></td></tr></table></div></div><p>至此，我们已全部介绍完 Operator 概念、Kubebuilder 框架以及如何实现一个 Operator。后续会介绍 Kubebuilder 架构、源码阅读以及 Operator 开发最佳实践。</p><section class=footnotes role=doc-endnotes>
 <hr>
 <ol>
 <li id=fn:1 role=doc-endnote>
-<p><a href=https://www.qikqiak.com/k8s-book/docs/32.DaemonSet%20%E4%B8%8E%20StatefulSet.html>从 Docker 到 Kubernetes 进阶: DaemonSet 与 StatefulSet 的使用</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:2 role=doc-endnote>
-<p><a href=https://www.baeldung.com/ops/kubernetes-deployment-vs-statefulsets>Kubernetes Deployment vs. StatefulSets</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:3 role=doc-endnote>
-<p><a href=https://book.douban.com/subject/33393681/>Programming Kubernetes: Developing Cloud-Native Applications</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:4 role=doc-endnote>
-<p><a href=https://book.kubebuilder.io/>The Kubebuilder Book</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:5 role=doc-endnote>
-<p><a href=https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/>Kubernetes 文档：使用 RBAC 鉴权</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-</ol>
-</section>
-</article>
-</main>
-<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<p><a href=https://www.qikqiak.com/k8s-book/docs/32.DaemonSet%20%E4%B8%8E%20StatefulSet.html>从 Docker 到 Kubernetes 进阶: DaemonSet 与 StatefulSet 的使用</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote>
+<p><a href=https://www.baeldung.com/ops/kubernetes-deployment-vs-statefulsets>Kubernetes Deployment vs. StatefulSets</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote>
+<p><a href=https://book.douban.com/subject/33393681/>Programming Kubernetes: Developing Cloud-Native Applications</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4 role=doc-endnote>
+<p><a href=https://book.kubebuilder.io/>The Kubebuilder Book</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:5 role=doc-endnote>
+<p><a href=https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/>Kubernetes 文档：使用 RBAC 鉴权</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p>
-<p class="flex items-center mt-0">
+</p><p class="flex items-center mt-0">
 <a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
 </a>
 <a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
 </a>
-</p>
-</footer>
-</body>
-</html>
+</p></footer></body></html>

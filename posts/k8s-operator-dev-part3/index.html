@@ -17,58 +17,36 @@
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
 Hi Folks - K8s Operator 开发（三）：Cache 机制
-</title>
-<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646047372.css>
-<script defer type=text/javascript src=/minima.1646047372.js></script>
-</head>
-<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<link rel=stylesheet href=/minima.1646134251.css>
+<script defer type=text/javascript src=/minima.1646134251.js></script>
+</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
 <div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
-</div>
-<nav class="flex items-center
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
 <a class=ml-5 href=/about>About</a>
-</nav>
-</header>
-<details class="toc toc-lines">
+</nav></header><details class="toc toc-lines">
 <summary></summary>
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
-<li><a href=#cache>Cache</a></li>
-<li><a href=#indexer>Indexer</a>
+<li><a href=#cache>Cache</a></li><li><a href=#indexer>Indexer</a>
 <ul>
-<li><a href=#indexers>Indexers</a></li>
-<li><a href=#indices>Indices</a></li>
-<li><a href=#items>Items</a></li>
-<li><a href=#缓存同步>缓存同步</a></li>
-</ul>
-</li>
-</ul>
-</nav>
-</div>
-</details>
-<h1 class="mt-6 mb-6">K8s Operator 开发（三）：Cache 机制</h1>
-<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<li><a href=#indexers>Indexers</a></li><li><a href=#indices>Indices</a></li><li><a href=#items>Items</a></li><li><a href=#缓存同步>缓存同步</a></li></ul></li></ul></nav></div></details>
+<h1 class="mt-6 mb-6">K8s Operator 开发（三）：Cache 机制</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
 Posted at &mdash; Jan 19, 2022
-</div>
-</div>
-<main>
-<p></p>
-<article class=md>
-<h2 id=cache>Cache</h2>
-<p>上一篇谈到 Kubebuilder 使用的是读写分离的客户端。读客户端采用了 Cache 设计。通过深入追踪 main.go 的 ctrl.NewManager 代码，我们可以看到 Kubebuilder 使用 cotroller-runtime 包构造并持有了一个 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/cache.go#L136>Cache 接口实例</a>。Cache 接口包含两个组件：Reader 和 Informers。而 Informers 本身内嵌了 FieldIndexer 接口。</p>
-<div class=highlight><div class=chroma>
+</div></div><main>
+<p></p><article class=md>
+<h2 id=cache>Cache</h2><p>上一篇谈到 Kubebuilder 使用的是读写分离的客户端。读客户端采用了 Cache 设计。通过深入追踪 main.go 的 ctrl.NewManager 代码，我们可以看到 Kubebuilder 使用 cotroller-runtime 包构造并持有了一个 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/cache.go#L136>Cache 接口实例</a>。Cache 接口包含两个组件：Reader 和 Informers。而 Informers 本身内嵌了 FieldIndexer 接口。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -80,36 +58,21 @@ Posted at &mdash; Jan 19, 2022
 </span><span class=lnt> 8
 </span><span class=lnt> 9
 </span><span class=lnt>10
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Cache knows how to load Kubernetes objects, fetch informers to request
-</span><span class=c1>// to receive events for Kubernetes objects (at a low-level),
-</span><span class=c1>// and add indices to fields on the objects stored in the cache.
-</span><span class=c1></span><span class=kd>type</span> <span class=nx>Cache</span> <span class=kd>interface</span> <span class=p>{</span>
-	<span class=c1>// Cache acts as a client to objects stored in the cache.
-</span><span class=c1></span>	<span class=nx>client</span><span class=p>.</span><span class=nx>Reader</span>
-
-	<span class=c1>// Cache loads informers and adds field indices.
-</span><span class=c1></span>	<span class=nx>Informers</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>所以，Cache 一共提供方法如下。Reader 接口很简单，提供 Get 和 List 方法。Infomers 是新概念，Informers 保持的是一组 Informer。Cache 对象可以通过 GetInformer/GetInformerForKind 方法获得。Start 用于 Informers 的初始化和启动。WaitForCacheSync 等待缓存同步完成。</p>
-<ol>
-<li>Get(ctx context.Context, key ObjectKey, obj Object) error</li>
-<li>List(ctx context.Context, list ObjectList, opts &mldr;ListOption) error</li>
-<li>GetInformer(ctx context.Context, obj client.Object) (Informer, error)</li>
-<li>GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (Informer, error)</li>
-<li>Start(ctx context.Context) error</li>
-<li>WaitForCacheSync(ctx context.Context) bool</li>
-<li>IndexField(ctx context.Context, obj Object, field string, extractValue IndexerFunc) error</li>
-</ol>
-<blockquote>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// Cache knows how to load Kubernetes objects, fetch informers to request
+</span></span></span><span class=line><span class=cl><span class=c1>// to receive events for Kubernetes objects (at a low-level),
+</span></span></span><span class=line><span class=cl><span class=c1>// and add indices to fields on the objects stored in the cache.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>Cache</span> <span class=kd>interface</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// Cache acts as a client to objects stored in the cache.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>client</span><span class=p>.</span><span class=nx>Reader</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// Cache loads informers and adds field indices.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>Informers</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>所以，Cache 一共提供方法如下。Reader 接口很简单，提供 Get 和 List 方法。Infomers 是新概念，Informers 保持的是一组 Informer。Cache 对象可以通过 GetInformer/GetInformerForKind 方法获得。Start 用于 Informers 的初始化和启动。WaitForCacheSync 等待缓存同步完成。</p><ol>
+<li>Get(ctx context.Context, key ObjectKey, obj Object) error</li><li>List(ctx context.Context, list ObjectList, opts &mldr;ListOption) error</li><li>GetInformer(ctx context.Context, obj client.Object) (Informer, error)</li><li>GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (Informer, error)</li><li>Start(ctx context.Context) error</li><li>WaitForCacheSync(ctx context.Context) bool</li><li>IndexField(ctx context.Context, obj Object, field string, extractValue IndexerFunc) error</li></ol><blockquote>
 <p>Informer 的启动：<br>
-实际上调用 Start()（运行在一个 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/manager/internal.go#L696>Runnable</a> 后台 goroutine 中）不会真正把各个 informer 跑起来，即<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/internal/informers_map.go#L150-L152>源码</a>中 for 循环 <code>go informer.Informer.Run(ctx.Done())</code> 不会进入，因为此时 informersByGVK 内容为空。真正 Informer.Run() 是在 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/source/source.go#L123>GetInformer()</a> （以及 Get/List/GetInformerForKind）时，底层调用 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/internal/informers_map.go#L194>addInformerToMap()</a> 方法延迟运行。</p>
-</blockquote>
-<p>前面提到 Informers 保持的是一组 Informer。每个 Informer 完成两个工作：1. 监听一种 K8s 资源的状态；2. 把状态保存到缓存（in-memory cache）中。资源监听是通过 ListAndWatch 机制拿到资源的最新状态，而不是轮训 kube-apiserver。后者，K8s 资源和 Informer 的缓存通过 map 映射，<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/internal/informers_map.go#L97>以 GVK 作为 map 的 key</a>，保存在 specificInformersMap（Informer 的底层实现）的 informersByGVK 字段。获取一个具体的 Informer 缓存可以通过 Informers 的 GetInformerForKind() 方法，底层会调用 specificInformersMap 实现的 <a href=(https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/internal/informers_map.go#L184)>Get()</a> 获取。Get 方法返回一个 *MapEntry 引用对象。MapEntry 封装了一个 client-go 库的 cache 包下的 SharedIndexInformer 接口和一个 CacheReader 结构体（Reader 的接口实现）。</p>
-<div class=highlight><div class=chroma>
+实际上调用 Start()（运行在一个 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/manager/internal.go#L696>Runnable</a> 后台 goroutine 中）不会真正把各个 informer 跑起来，即<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/internal/informers_map.go#L150-L152>源码</a>中 for 循环 <code>go informer.Informer.Run(ctx.Done())</code> 不会进入，因为此时 informersByGVK 内容为空。真正 Informer.Run() 是在 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/source/source.go#L123>GetInformer()</a> （以及 Get/List/GetInformerForKind）时，底层调用 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/internal/informers_map.go#L194>addInformerToMap()</a> 方法延迟运行。</p></blockquote><p>前面提到 Informers 保持的是一组 Informer。每个 Informer 完成两个工作：1. 监听一种 K8s 资源的状态；2. 把状态保存到缓存（in-memory cache）中。资源监听是通过 ListAndWatch 机制拿到资源的最新状态，而不是轮训 kube-apiserver。后者，K8s 资源和 Informer 的缓存通过 map 映射，<a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/internal/informers_map.go#L97>以 GVK 作为 map 的 key</a>，保存在 specificInformersMap（Informer 的底层实现）的 informersByGVK 字段。获取一个具体的 Informer 缓存可以通过 Informers 的 GetInformerForKind() 方法，底层会调用 specificInformersMap 实现的 <a href=(https://github.com/kubernetes-sigs/controller-runtime/blob/v0.11.0/pkg/cache/internal/informers_map.go#L184)>Get()</a> 获取。Get 方法返回一个 *MapEntry 引用对象。MapEntry 封装了一个 client-go 库的 cache 包下的 SharedIndexInformer 接口和一个 CacheReader 结构体（Reader 的接口实现）。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -118,23 +81,17 @@ Posted at &mdash; Jan 19, 2022
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>MapEntry</span> <span class=kd>struct</span> <span class=p>{</span>
-	<span class=c1>// Informer is the cached informer
-</span><span class=c1></span>	<span class=nx>Informer</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>SharedIndexInformer</span>
-
-	<span class=c1>// CacheReader wraps Informer and implements the CacheReader interface for a single type
-</span><span class=c1></span>	<span class=nx>Reader</span> <span class=nx>CacheReader</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><blockquote>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>MapEntry</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// Informer is the cached informer
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>Informer</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>SharedIndexInformer</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// CacheReader wraps Informer and implements the CacheReader interface for a single type
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>Reader</span> <span class=nx>CacheReader</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote>
 <p>为什么 MapEntry 两个字段一个是接口类型，一个是结构体类型？<br>
-cache.SharedIndexInformer 的接口实现都包内访问（首字母是小写的结构体），所以只能用接口类型来声明；而能直接使用 CacheReader 结构体的，尽量选择结构体类型声明，而不用 Reader 接口，避免不必要的反射且类型安全。</p>
-</blockquote>
-<p>由于前面提到的懒加载，MapEntry 的初始化在 GetInformer 时调用 addInformerToMap() 才完成。可以看到 MapEntry 的两个字段 Informer 和 Reader 共享一个 Indexer。Indexer 实际上是带索引的缓存。此处 <strong>Indexer 正是本节要讨论的所谓 Cache</strong>（终于定位到正确的源码了）。</p>
-<div class=highlight><div class=chroma>
+cache.SharedIndexInformer 的接口实现都包内访问（首字母是小写的结构体），所以只能用接口类型来声明；而能直接使用 CacheReader 结构体的，尽量选择结构体类型声明，而不用 Reader 接口，避免不必要的反射且类型安全。</p></blockquote><p>由于前面提到的懒加载，MapEntry 的初始化在 GetInformer 时调用 addInformerToMap() 才完成。可以看到 MapEntry 的两个字段 Informer 和 Reader 共享一个 Indexer。Indexer 实际上是带索引的缓存。此处 <strong>Indexer 正是本节要讨论的所谓 Cache</strong>（终于定位到正确的源码了）。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -158,107 +115,46 @@ cache.SharedIndexInformer 的接口实现都包内访问（首字母是小写的
 </span><span class=lnt>20
 </span><span class=lnt>21
 </span><span class=lnt>22
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=p>(</span><span class=nx>ip</span> <span class=o>*</span><span class=nx>specificInformersMap</span><span class=p>)</span> <span class=nf>addInformerToMap</span><span class=p>(</span><span class=nx>gvk</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>MapEntry</span><span class=p>,</span> <span class=kt>bool</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
-	<span class=c1>//...
-</span><span class=c1></span>	<span class=c1>// 创建的 SharedIndexInformer 带有一个 Indexer
-</span><span class=c1></span>	<span class=c1>// Indexer 可通过 SharedIndexInformer 的 GetIndexer 方法返回
-</span><span class=c1></span>	<span class=nx>ni</span> <span class=o>:=</span> <span class=nx>cache</span><span class=p>.</span><span class=nf>NewSharedIndexInformer</span><span class=p>(</span><span class=nx>lw</span><span class=p>,</span> <span class=nx>obj</span><span class=p>,</span> <span class=nf>resyncPeriod</span><span class=p>(</span><span class=nx>ip</span><span class=p>.</span><span class=nx>resync</span><span class=p>)(),</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>Indexers</span><span class=p>{</span>
-        <span class=nx>cache</span><span class=p>.</span><span class=nx>NamespaceIndex</span><span class=p>:</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>MetaNamespaceIndexFunc</span><span class=p>,</span>
-    <span class=p>})</span>
-	<span class=c1>// ...
-</span><span class=c1></span>	
-    <span class=nx>i</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>MapEntry</span><span class=p>{</span>
-        <span class=nx>Informer</span><span class=p>:</span> <span class=nx>ni</span><span class=p>,</span>
-        <span class=nx>Reader</span><span class=p>:</span> <span class=nx>CacheReader</span><span class=p>{</span>
-            <span class=nx>indexer</span><span class=p>:</span>          <span class=nx>ni</span><span class=p>.</span><span class=nf>GetIndexer</span><span class=p>(),</span>  <span class=c1>// 共享 Indexer
-</span><span class=c1></span>            <span class=nx>groupVersionKind</span><span class=p>:</span> <span class=nx>gvk</span><span class=p>,</span>
-            <span class=nx>scopeName</span><span class=p>:</span>        <span class=nx>rm</span><span class=p>.</span><span class=nx>Scope</span><span class=p>.</span><span class=nf>Name</span><span class=p>(),</span>
-            <span class=nx>disableDeepCopy</span><span class=p>:</span>  <span class=nx>ip</span><span class=p>.</span><span class=nx>disableDeepCopy</span><span class=p>.</span><span class=nf>IsDisabled</span><span class=p>(</span><span class=nx>gvk</span><span class=p>),</span>
-        <span class=p>},</span>
-    <span class=p>}</span>
-    <span class=nx>ip</span><span class=p>.</span><span class=nx>informersByGVK</span><span class=p>[</span><span class=nx>gvk</span><span class=p>]</span> <span class=p>=</span> <span class=nx>i</span>
-	
-	<span class=c1>//...
-</span><span class=c1></span><span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>虽然本篇重点讲 Cache 实现以及 Indexer，还未全面介绍 Informer（Cache 是 Informer 的组件），但我们在阅读 controller-runtime 源码时会看到 Informer 接口有两处定义：controller-runtime 库不仅自身定义了 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/cache.go#L73>Informer 接口</a>，还有一处引用了 k8s.io/client-go/tools/cache 包的 SharedIndexInformer 接口，即 MapEntry 的 Informer 字段。为什么 client-go 库和 controller-runtime 库都定义 Informer 接口（client-go 库称为 Informer，controller-runtime 库称为 SharedIndexInformer）？这两个库的区别与关系是：controller-runtime 库是 kubebuilder 框架的基础。controller-runtime 提供了很多脚手架工具。controller-runtime 库对 client-go 库进一步封装。client-go 更底层。也可以直接使用 client-go 写控制器，详见 <a href=https://github.com/kubernetes/sample-controller/blob/master/main.go>sample-controller</a> 源码。通常使用 controller-runtime 更多。</p>
-<table>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>ip</span> <span class=o>*</span><span class=nx>specificInformersMap</span><span class=p>)</span> <span class=nf>addInformerToMap</span><span class=p>(</span><span class=nx>gvk</span> <span class=nx>schema</span><span class=p>.</span><span class=nx>GroupVersionKind</span><span class=p>,</span> <span class=nx>obj</span> <span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>MapEntry</span><span class=p>,</span> <span class=kt>bool</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 创建的 SharedIndexInformer 带有一个 Indexer
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// Indexer 可通过 SharedIndexInformer 的 GetIndexer 方法返回
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>ni</span> <span class=o>:=</span> <span class=nx>cache</span><span class=p>.</span><span class=nf>NewSharedIndexInformer</span><span class=p>(</span><span class=nx>lw</span><span class=p>,</span> <span class=nx>obj</span><span class=p>,</span> <span class=nf>resyncPeriod</span><span class=p>(</span><span class=nx>ip</span><span class=p>.</span><span class=nx>resync</span><span class=p>)(),</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>Indexers</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>cache</span><span class=p>.</span><span class=nx>NamespaceIndex</span><span class=p>:</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>MetaNamespaceIndexFunc</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>	
+</span></span><span class=line><span class=cl>    <span class=nx>i</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>MapEntry</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Informer</span><span class=p>:</span> <span class=nx>ni</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Reader</span><span class=p>:</span> <span class=nx>CacheReader</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>indexer</span><span class=p>:</span>          <span class=nx>ni</span><span class=p>.</span><span class=nf>GetIndexer</span><span class=p>(),</span>  <span class=c1>// 共享 Indexer
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>groupVersionKind</span><span class=p>:</span> <span class=nx>gvk</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>scopeName</span><span class=p>:</span>        <span class=nx>rm</span><span class=p>.</span><span class=nx>Scope</span><span class=p>.</span><span class=nf>Name</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>            <span class=nx>disableDeepCopy</span><span class=p>:</span>  <span class=nx>ip</span><span class=p>.</span><span class=nx>disableDeepCopy</span><span class=p>.</span><span class=nf>IsDisabled</span><span class=p>(</span><span class=nx>gvk</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ip</span><span class=p>.</span><span class=nx>informersByGVK</span><span class=p>[</span><span class=nx>gvk</span><span class=p>]</span> <span class=p>=</span> <span class=nx>i</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>	<span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>虽然本篇重点讲 Cache 实现以及 Indexer，还未全面介绍 Informer（Cache 是 Informer 的组件），但我们在阅读 controller-runtime 源码时会看到 Informer 接口有两处定义：controller-runtime 库不仅自身定义了 <a href=https://github.com/kubernetes-sigs/controller-runtime/blob/v0.10.0/pkg/cache/cache.go#L73>Informer 接口</a>，还有一处引用了 k8s.io/client-go/tools/cache 包的 SharedIndexInformer 接口，即 MapEntry 的 Informer 字段。为什么 client-go 库和 controller-runtime 库都定义 Informer 接口（client-go 库称为 Informer，controller-runtime 库称为 SharedIndexInformer）？这两个库的区别与关系是：controller-runtime 库是 kubebuilder 框架的基础。controller-runtime 提供了很多脚手架工具。controller-runtime 库对 client-go 库进一步封装。client-go 更底层。也可以直接使用 client-go 写控制器，详见 <a href=https://github.com/kubernetes/sample-controller/blob/master/main.go>sample-controller</a> 源码。通常使用 controller-runtime 更多。</p><table>
 <thead>
 <tr>
-<th>Informer</th>
-<th>SharedIndexInformer</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
+<th>Informer</th><th>SharedIndexInformer</th><th>说明</th></tr></thead><tbody>
 <tr>
-<td><strong><code>import toolscache "k8s.io/client-go/tools/cache"</code></strong></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><code>AddEventHandler(handler toolscache.ResourceEventHandler)</code></td>
-<td><code>AddEventHandler(handler ResourceEventHandler)</code></td>
-<td>参考 AddEventHandlerWithResyncPeriod</td>
-</tr>
-<tr>
-<td><code>AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration)</code></td>
-<td><code>AddEventHandlerWithResyncPeriod(handler ResourceEventHandler, resyncPeriod time.Duration)</code></td>
-<td>添加事件监听器。在 Informer 启动（也即 Controller 启动时）时会被调用</td>
-</tr>
-<tr>
-<td><code>AddIndexers(indexers toolscache.Indexers) error</code></td>
-<td><code>AddIndexers(indexers Indexers) error</code></td>
-<td>添加索引器</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GetIndexer() Indexer</code></td>
-<td>返回带索引缓存</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GetStore() Store</code></td>
-<td>返回（带索引）缓存，实现上同 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/shared_informer.go#L433-L439>GetIndexer()</a></td>
-</tr>
-<tr>
-<td></td>
-<td><code>GetController() Controller</code></td>
-<td>未实现功能的空方法。由上层封装实现</td>
-</tr>
-<tr>
-<td></td>
-<td><code>Run(stopCh &lt;-chan struct{})</code></td>
-<td>未实现 SharedInformer 的启动。由上层封装实现</td>
-</tr>
-<tr>
-<td><code>HasSynced() bool</code></td>
-<td><code>HasSynced() bool</code></td>
-<td>同上</td>
-</tr>
-<tr>
-<td></td>
-<td><code>LastSyncResourceVersion() string</code></td>
-<td>同上</td>
-</tr>
-<tr>
-<td></td>
-<td><code>SetWatchErrorHandler(handler WatchErrorHandler) error</code></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<h2 id=indexer>Indexer</h2>
-<p>Indexer 是<a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/index.go#L35>带索引的缓存 Store</a>。Indexer 接口的底层实现是 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/thread_safe_store.go#L63>threadSafeMap</a>。threadSafeMap 包含三个部分：indexers、indices、items：</p>
-<ol>
-<li>indexers：一组索引器。索引器计算用于计算待保存对象的索引；</li>
-<li>indices：一组索引。索引记录索引与对象的 ID 映射；</li>
-<li>items：实际保存对象的变量。是对象 ID 与对象的映射。</li>
-</ol>
-<div class=highlight><div class=chroma>
+<td><strong><code>import toolscache "k8s.io/client-go/tools/cache"</code></strong></td><td></td><td></td></tr><tr>
+<td><code>AddEventHandler(handler toolscache.ResourceEventHandler)</code></td><td><code>AddEventHandler(handler ResourceEventHandler)</code></td><td>参考 AddEventHandlerWithResyncPeriod</td></tr><tr>
+<td><code>AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration)</code></td><td><code>AddEventHandlerWithResyncPeriod(handler ResourceEventHandler, resyncPeriod time.Duration)</code></td><td>添加事件监听器。在 Informer 启动（也即 Controller 启动时）时会被调用</td></tr><tr>
+<td><code>AddIndexers(indexers toolscache.Indexers) error</code></td><td><code>AddIndexers(indexers Indexers) error</code></td><td>添加索引器</td></tr><tr>
+<td></td><td><code>GetIndexer() Indexer</code></td><td>返回带索引缓存</td></tr><tr>
+<td></td><td><code>GetStore() Store</code></td><td>返回（带索引）缓存，实现上同 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/shared_informer.go#L433-L439>GetIndexer()</a></td></tr><tr>
+<td></td><td><code>GetController() Controller</code></td><td>未实现功能的空方法。由上层封装实现</td></tr><tr>
+<td></td><td><code>Run(stopCh &lt;-chan struct{})</code></td><td>未实现 SharedInformer 的启动。由上层封装实现</td></tr><tr>
+<td><code>HasSynced() bool</code></td><td><code>HasSynced() bool</code></td><td>同上</td></tr><tr>
+<td></td><td><code>LastSyncResourceVersion() string</code></td><td>同上</td></tr><tr>
+<td></td><td><code>SetWatchErrorHandler(handler WatchErrorHandler) error</code></td><td></td></tr></tbody></table><h2 id=indexer>Indexer</h2><p>Indexer 是<a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/index.go#L35>带索引的缓存 Store</a>。Indexer 接口的底层实现是 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/thread_safe_store.go#L63>threadSafeMap</a>。threadSafeMap 包含三个部分：indexers、indices、items：</p><ol>
+<li>indexers：一组索引器。索引器计算用于计算待保存对象的索引；</li><li>indices：一组索引。索引记录索引与对象的 ID 映射；</li><li>items：实际保存对象的变量。是对象 ID 与对象的映射。</li></ol><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -270,46 +166,26 @@ cache.SharedIndexInformer 的接口实现都包内访问（首字母是小写的
 </span><span class=lnt> 8
 </span><span class=lnt> 9
 </span><span class=lnt>10
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// threadSafeMap implements ThreadSafeStore
-</span><span class=c1></span><span class=kd>type</span> <span class=nx>threadSafeMap</span> <span class=kd>struct</span> <span class=p>{</span>
-	<span class=nx>lock</span>  <span class=nx>sync</span><span class=p>.</span><span class=nx>RWMutex</span>
-	<span class=nx>items</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kd>interface</span><span class=p>{}</span>
-
-	<span class=c1>// indexers maps a name to an IndexFunc
-</span><span class=c1></span>	<span class=nx>indexers</span> <span class=nx>Indexers</span>
-	<span class=c1>// indices maps a name to an Index
-</span><span class=c1></span>	<span class=nx>indices</span> <span class=nx>Indices</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=indexers>Indexers</h3>
-<p>Indexers 是索引器，索引器的 IndexFunc 函数接受一个 K8s 资源对象（如 Pod）计算该对象的索引。最常见的是按 namespace 建立索引，client-go 提供了该计算函数：<a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/index.go#L86>MetaNamespaceIndexFunc</a>。也可以自定义按 node 建立索引。</p>
-<p><img src=/images/k8s-operator-dev-part3-1.png alt=k8s-operator-dev-part3-1></p>
-<h3 id=indices>Indices</h3>
-<p>Indices 是真正所谓的索引。Indices 是一组索引，每个索引记录索引名，索引名下的索引键值。比如如下图，使用 namespace 作为索引，namespace 有 default、kube-system 和 istio-system 三个。default 下又有三个对象，对象 ID 为 nginx-xxxx-xxx。对象 ID 的计算方式定义在 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/store.go#L269>KeyFunc</a>，默认是 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/store.go#L104>MetaNamespaceKeyFunc</a>，返回对象的 &lt;namespace>/&lt;name> 作为 ID（这里称 Key）。</p>
-<p><img src=/images/k8s-operator-dev-part3-2.png alt=k8s-operator-dev-part3-2></p>
-<h3 id=items>Items</h3>
-<p>实际元素保存在 Items 中。Items 是对象的 Key 与对象实例的映射。</p>
-<p><img src=/images/k8s-operator-dev-part3-3.png alt=k8s-operator-dev-part3-3></p>
-<h3 id=缓存同步>缓存同步</h3>
-<p>Indexer 支持对索引以及缓存元素的 CRUD。那么现在的问题是缓存的数据来源是哪？K8s 控制器不是通过 Get/List 请求直接访问 kube-apiserver，而是通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L254>ListAndWatch</a> 机制，先通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L277>List</a> 请求拿到请求资源的版本（resourceVersion），然后再发送 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L414>Watch</a> 请求，监听资源该版本之后的变化。下一篇我们详细介绍 ListAndWatch 机制。</p>
-</article>
-</main>
-<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// threadSafeMap implements ThreadSafeStore
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>threadSafeMap</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>lock</span>  <span class=nx>sync</span><span class=p>.</span><span class=nx>RWMutex</span>
+</span></span><span class=line><span class=cl>	<span class=nx>items</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kd>interface</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// indexers maps a name to an IndexFunc
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>indexers</span> <span class=nx>Indexers</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// indices maps a name to an Index
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>indices</span> <span class=nx>Indices</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=indexers>Indexers</h3><p>Indexers 是索引器，索引器的 IndexFunc 函数接受一个 K8s 资源对象（如 Pod）计算该对象的索引。最常见的是按 namespace 建立索引，client-go 提供了该计算函数：<a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/index.go#L86>MetaNamespaceIndexFunc</a>。也可以自定义按 node 建立索引。</p><p><img src=/images/k8s-operator-dev-part3-1.png alt=k8s-operator-dev-part3-1></p><h3 id=indices>Indices</h3><p>Indices 是真正所谓的索引。Indices 是一组索引，每个索引记录索引名，索引名下的索引键值。比如如下图，使用 namespace 作为索引，namespace 有 default、kube-system 和 istio-system 三个。default 下又有三个对象，对象 ID 为 nginx-xxxx-xxx。对象 ID 的计算方式定义在 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/store.go#L269>KeyFunc</a>，默认是 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/store.go#L104>MetaNamespaceKeyFunc</a>，返回对象的 &lt;namespace>/&lt;name> 作为 ID（这里称 Key）。</p><p><img src=/images/k8s-operator-dev-part3-2.png alt=k8s-operator-dev-part3-2></p><h3 id=items>Items</h3><p>实际元素保存在 Items 中。Items 是对象的 Key 与对象实例的映射。</p><p><img src=/images/k8s-operator-dev-part3-3.png alt=k8s-operator-dev-part3-3></p><h3 id=缓存同步>缓存同步</h3><p>Indexer 支持对索引以及缓存元素的 CRUD。那么现在的问题是缓存的数据来源是哪？K8s 控制器不是通过 Get/List 请求直接访问 kube-apiserver，而是通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L254>ListAndWatch</a> 机制，先通过 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L277>List</a> 请求拿到请求资源的版本（resourceVersion），然后再发送 <a href=https://github.com/kubernetes/client-go/blob/v0.22.1/tools/cache/reflector.go#L414>Watch</a> 请求，监听资源该版本之后的变化。下一篇我们详细介绍 ListAndWatch 机制。</p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p>
-<p class="flex items-center mt-0">
+</p><p class="flex items-center mt-0">
 <a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
 </a>
 <a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
 </a>
-</p>
-</footer>
-</body>
-</html>
+</p></footer></body></html>

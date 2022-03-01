@@ -21,66 +21,36 @@
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
 Hi Folks - Istio 支持虚拟机集成实践
-</title>
-<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646047372.css>
-<script defer type=text/javascript src=/minima.1646047372.js></script>
-</head>
-<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<link rel=stylesheet href=/minima.1646134251.css>
+<script defer type=text/javascript src=/minima.1646134251.js></script>
+</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
 <div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
-</div>
-<nav class="flex items-center
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
 <a class=ml-5 href=/about>About</a>
-</nav>
-</header>
-<details class="toc toc-lines">
+</nav></header><details class="toc toc-lines">
 <summary></summary>
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
 <li><a href=#虚拟机集成>虚拟机集成</a>
 <ul>
-<li><a href=#step-1-环境准备>Step 1. 环境准备</a></li>
-<li><a href=#step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</a></li>
-<li><a href=#step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</a></li>
-<li><a href=#step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</a></li>
-<li><a href=#step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</a></li>
-<li><a href=#step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</a></li>
-<li><a href=#step-6-配置虚拟机>Step 6. 配置虚拟机</a></li>
-<li><a href=#step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</a></li>
-</ul>
-</li>
-</ul>
-</nav>
-</div>
-</details>
-<h1 class="mt-6 mb-6">Istio 支持虚拟机集成实践</h1>
-<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<li><a href=#step-1-环境准备>Step 1. 环境准备</a></li><li><a href=#step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</a></li><li><a href=#step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</a></li><li><a href=#step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</a></li><li><a href=#step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</a></li><li><a href=#step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</a></li><li><a href=#step-6-配置虚拟机>Step 6. 配置虚拟机</a></li><li><a href=#step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</a></li></ul></li></ul></nav></div></details>
+<h1 class="mt-6 mb-6">Istio 支持虚拟机集成实践</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
 Posted at &mdash; Jan 29, 2022
-</div>
-</div>
-<main>
-<p></p>
-<article class=md>
-<p>Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：</p>
-<p><img src=/images/istio-virtual-machines-1.svg alt=istio-virtual-machines-1></p>
-<p>多网络下，Gateway 负责同时暴露 Istio 控制平面和服务网格内的服务：</p>
-<p><img src=/images/istio-virtual-machines-2.svg alt=istio-virtual-machines-2></p>
-<h2 id=虚拟机集成>虚拟机集成</h2>
-<h3 id=step-1-环境准备>Step 1. 环境准备</h3>
-<p>本文使用阿里云，在同一 VPC 下，部署一个 K8s 托管集群以及一个 ECS 实例，模拟单网络下集成虚拟机。在 K8s 节点机器上设置以下环境变量用于后续操作，并创建工作目录 <code>mkdir -p "${WORK_DIR}"</code>。</p>
-<div class=highlight><div class=chroma>
+</div></div><main>
+<p></p><article class=md>
+<p>Istio 支持 K8s 集群外的虚拟机及虚拟机运行的应用加入 Istio 服务网格。这允许老的应用以及不适合容器化部署的应用也能使用 Istio 服务网格。 在单网络下，Gateway 负责虚拟机访问允许在 K8s 上的 Istio 控制平面：</p><p><img src=/images/istio-virtual-machines-1.svg alt=istio-virtual-machines-1></p><p>多网络下，Gateway 负责同时暴露 Istio 控制平面和服务网格内的服务：</p><p><img src=/images/istio-virtual-machines-2.svg alt=istio-virtual-machines-2></p><h2 id=虚拟机集成>虚拟机集成</h2><h3 id=step-1-环境准备>Step 1. 环境准备</h3><p>本文使用阿里云，在同一 VPC 下，部署一个 K8s 托管集群以及一个 ECS 实例，模拟单网络下集成虚拟机。在 K8s 节点机器上设置以下环境变量用于后续操作，并创建工作目录 <code>mkdir -p "${WORK_DIR}"</code>。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -93,24 +63,19 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt> 9
 </span><span class=lnt>10
 </span><span class=lnt>11
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nv>VM_APP</span><span class=o>=</span><span class=s2>&#34;demo&#34;</span>
-<span class=nv>VM_NAMESPACE</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
-<span class=nv>WORK_DIR</span><span class=o>=</span><span class=s2>&#34;</span><span class=si>${</span><span class=nv>HOME</span><span class=si>}</span><span class=s2>/vmintegration&#34;</span>
-<span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
-<span class=c1># 多网络下，K8s 集群和虚拟机所在网络分别命名，如：</span>
-<span class=c1># CLUSTER_NETWORK=&#34;kube-network&#34;</span>
-<span class=c1># VM_NETWORK=&#34;vm-network&#34;</span>
-<span class=c1># 而 CLUSTER 值赋为 cluster1</span>
-<span class=nv>CLUSTER_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
-<span class=nv>VM_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
-<span class=nv>CLUSTER</span><span class=o>=</span><span class=s2>&#34;Kubernetes&#34;</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</h3>
-<p>在 K8s 集群上安装 Istio（如果集群已安装则无须安装，但仍要暴露 Istio 控制平面）：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nv>VM_APP</span><span class=o>=</span><span class=s2>&#34;demo&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>VM_NAMESPACE</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>WORK_DIR</span><span class=o>=</span><span class=s2>&#34;</span><span class=si>${</span><span class=nv>HOME</span><span class=si>}</span><span class=s2>/vmintegration&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s2>&#34;vm&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 多网络下，K8s 集群和虚拟机所在网络分别命名，如：</span>
+</span></span><span class=line><span class=cl><span class=c1># CLUSTER_NETWORK=&#34;kube-network&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># VM_NETWORK=&#34;vm-network&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 而 CLUSTER 值赋为 cluster1</span>
+</span></span><span class=line><span class=cl><span class=nv>CLUSTER_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>VM_NETWORK</span><span class=o>=</span><span class=s2>&#34;&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>CLUSTER</span><span class=o>=</span><span class=s2>&#34;Kubernetes&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-2-安装-istio-控制平面>Step 2. 安装 Istio 控制平面</h3><p>在 K8s 集群上安装 Istio（如果集群已安装则无须安装，但仍要暴露 Istio 控制平面）：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -127,36 +92,28 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>13
 </span><span class=lnt>14
 </span><span class=lnt>15
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=l>cat &lt;&lt;EOF &gt; ./vm-cluster.yaml</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istio</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>global</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>meshID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
-</span><span class=w>      </span><span class=nt>multiCluster</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>clusterName</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER}&#34;</span><span class=w>
-</span><span class=w>      </span><span class=nt>network</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER_NETWORK}&#34;</span><span class=w>
-</span><span class=w></span><span class=l>EOF</span><span class=w>
-</span><span class=w>
-</span><span class=w></span><span class=l>istioctl install -f vm-cluster.yaml</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h3 id=step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</h3>
-<p>通过 IstioOperator YAML 安装 east-west gateway：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=l>cat &lt;&lt;EOF &gt; ./vm-cluster.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istio</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>global</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>meshID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>multiCluster</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>clusterName</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER}&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>network</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;${CLUSTER_NETWORK}&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>EOF</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>istioctl install -f vm-cluster.yaml</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</h3><p>通过 IstioOperator YAML 安装 east-west gateway：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>samples/multicluster/gen-eastwest-gateway.sh --single-cluster <span class=p>|</span> istioctl install -y -f -
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>samples/multicluster/gen-eastwest-gateway.sh --single-cluster <span class=p>|</span> istioctl install -y -f -
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -191,57 +148,50 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>31
 </span><span class=lnt>32
 </span><span class=lnt>33
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>eastwest</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>revision</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&#34;</span><span class=w>
-</span><span class=w>  </span><span class=nt>profile</span><span class=p>:</span><span class=w> </span><span class=l>empty</span><span class=w>
-</span><span class=w>  </span><span class=nt>components</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>ingressGateways</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istio-eastwestgateway</span><span class=w>
-</span><span class=w>        </span><span class=nt>label</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
-</span><span class=w>          </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>istio-eastwestgateway</span><span class=w>
-</span><span class=w>        </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
-</span><span class=w>        </span><span class=nt>k8s</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>service</span><span class=p>:</span><span class=w>
-</span><span class=w>            </span><span class=nt>ports</span><span class=p>:</span><span class=w>
-</span><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>status-port</span><span class=w>
-</span><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15021</span><span class=w>
-</span><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15021</span><span class=w>
-</span><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
-</span><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
-</span><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w>
-</span><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-webhook</span><span class=w>
-</span><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>istio-ingressgateway</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>injectionTemplate</span><span class=p>:</span><span class=w> </span><span class=l>gateway</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h3 id=step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</h3>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>eastwest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>revision</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>profile</span><span class=p>:</span><span class=w> </span><span class=l>empty</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>components</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ingressGateways</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istio-eastwestgateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>label</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>istio-eastwestgateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>k8s</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>service</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>status-port</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15021</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15021</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15443</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-webhook</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>istio-ingressgateway</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>injectionTemplate</span><span class=p>:</span><span class=w> </span><span class=l>gateway</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-4-暴露-istio-控制平面>Step 4. 暴露 Istio 控制平面</h3><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl apply -n istio-system -f samples/multicluster/expose-istiod.yaml
-<span class=c1># 多网络部署多以下步骤</span>
-<span class=c1># kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml</span>
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl apply -n istio-system -f samples/multicluster/expose-istiod.yaml
+</span></span><span class=line><span class=cl><span class=c1># 多网络部署多以下步骤</span>
+</span></span><span class=line><span class=cl><span class=c1># kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -296,84 +246,69 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>51
 </span><span class=lnt>52
 </span><span class=lnt>53
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-gateway</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH        </span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiodwebhook</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH          </span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w></span><span class=nn>---</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>VirtualService</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-vs</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>  </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=l>istiod-gateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
-</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
-</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>443</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><h3 id=step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</h3>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH        </span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiodwebhook</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH          </span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>VirtualService</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-vs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>gateways</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>istiod-gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tls</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>443</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-5-创建虚拟机的命名空间>Step 5. 创建虚拟机的命名空间</h3><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>kubectl create namespace <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
-kubectl create serviceaccount <span class=s2>&#34;</span><span class=si>${</span><span class=nv>SERVICE_ACCOUNT</span><span class=si>}</span><span class=s2>&#34;</span> -n <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</h3>
-<p>通过 <code>istioctl x workload entry</code> 命令生成虚拟机应用（workload instance）的配置文件。该命令会生成五个文件：</p>
-<ol>
-<li>cluster.env：包含一些元信息，如：流量入口的端口号、虚拟机对应的 serviceaccount 和 namespace；</li>
-<li>istio-token：JWT token，用于从 CA 获取证书；</li>
-<li>mesh.yaml</li>
-<li>root-cert.pem：用于认证的根证书；</li>
-<li>hosts：包含 Istiod 的地址。</li>
-</ol>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>kubectl create serviceaccount <span class=s2>&#34;</span><span class=si>${</span><span class=nv>SERVICE_ACCOUNT</span><span class=si>}</span><span class=s2>&#34;</span> -n <span class=s2>&#34;</span><span class=si>${</span><span class=nv>VM_NAMESPACE</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-6-生成虚拟机应用的配置文件>Step 6. 生成虚拟机应用的配置文件</h3><p>通过 <code>istioctl x workload entry</code> 命令生成虚拟机应用（workload instance）的配置文件。该命令会生成五个文件：</p><ol>
+<li>cluster.env：包含一些元信息，如：流量入口的端口号、虚拟机对应的 serviceaccount 和 namespace；</li><li>istio-token：JWT token，用于从 CA 获取证书；</li><li>mesh.yaml</li><li>root-cert.pem：用于认证的根证书；</li><li>hosts：包含 Istiod 的地址。</li></ol><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -391,28 +326,24 @@ kubectl create serviceaccount <span class=s2>&#34;</span><span class=si>${</span
 </span><span class=lnt>14
 </span><span class=lnt>15
 </span><span class=lnt>16
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>cat <span class=s>&lt;&lt;EOF &gt; workloadgroup.yaml
-</span><span class=s>apiVersion: networking.istio.io/v1alpha3
-</span><span class=s>kind: WorkloadGroup
-</span><span class=s>metadata:
-</span><span class=s>  name: &#34;${VM_APP}&#34;
-</span><span class=s>  namespace: &#34;${VM_NAMESPACE}&#34;
-</span><span class=s>spec:
-</span><span class=s>  metadata:
-</span><span class=s>    labels:
-</span><span class=s>      app: &#34;${VM_APP}&#34;
-</span><span class=s>  template:
-</span><span class=s>    serviceAccount: &#34;${SERVICE_ACCOUNT}&#34;
-</span><span class=s>    network: &#34;${VM_NETWORK}&#34;
-</span><span class=s>EOF</span>
-
-istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34;</span><span class=si>${</span><span class=nv>WORK_DIR</span><span class=si>}</span><span class=s2>&#34;</span> --clusterID <span class=s2>&#34;</span><span class=si>${</span><span class=nv>CLUSTER</span><span class=si>}</span><span class=s2>&#34;</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>cluster.env 的内容如下：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>cat <span class=s>&lt;&lt;EOF &gt; workloadgroup.yaml
+</span></span></span><span class=line><span class=cl><span class=s>apiVersion: networking.istio.io/v1alpha3
+</span></span></span><span class=line><span class=cl><span class=s>kind: WorkloadGroup
+</span></span></span><span class=line><span class=cl><span class=s>metadata:
+</span></span></span><span class=line><span class=cl><span class=s>  name: &#34;${VM_APP}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>  namespace: &#34;${VM_NAMESPACE}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>spec:
+</span></span></span><span class=line><span class=cl><span class=s>  metadata:
+</span></span></span><span class=line><span class=cl><span class=s>    labels:
+</span></span></span><span class=line><span class=cl><span class=s>      app: &#34;${VM_APP}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>  template:
+</span></span></span><span class=line><span class=cl><span class=s>    serviceAccount: &#34;${SERVICE_ACCOUNT}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>    network: &#34;${VM_NETWORK}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34;</span><span class=si>${</span><span class=nv>WORK_DIR</span><span class=si>}</span><span class=s2>&#34;</span> --clusterID <span class=s2>&#34;</span><span class=si>${</span><span class=nv>CLUSTER</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><p>cluster.env 的内容如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -430,28 +361,24 @@ istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34
 </span><span class=lnt>14
 </span><span class=lnt>15
 </span><span class=lnt>16
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nv>CANONICAL_REVISION</span><span class=o>=</span><span class=s1>&#39;latest&#39;</span>
-<span class=nv>CANONICAL_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
-<span class=nv>ISTIO_INBOUND_PORTS</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
-<span class=nv>ISTIO_LOCAL_EXCLUDE_PORTS</span><span class=o>=</span><span class=s1>&#39;15090,15021,15020&#39;</span>
-<span class=nv>ISTIO_METAJSON_LABELS</span><span class=o>=</span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span>
-<span class=nv>ISTIO_META_CLUSTER_ID</span><span class=o>=</span><span class=s1>&#39;Kubernetes&#39;</span>
-<span class=nv>ISTIO_META_DNS_CAPTURE</span><span class=o>=</span><span class=s1>&#39;true&#39;</span>
-<span class=nv>ISTIO_META_MESH_ID</span><span class=o>=</span><span class=s1>&#39;mesh1&#39;</span>
-<span class=nv>ISTIO_META_NETWORK</span><span class=o>=</span><span class=s1>&#39;&#39;</span>
-<span class=nv>ISTIO_META_WORKLOAD_NAME</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
-<span class=nv>ISTIO_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
-<span class=nv>ISTIO_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo.vm&#39;</span>
-<span class=nv>ISTIO_SERVICE_CIDR</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
-<span class=nv>POD_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
-<span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
-<span class=nv>TRUST_DOMAIN</span><span class=o>=</span><span class=s1>&#39;cluster.local&#39;</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>mesh.yaml 的内容如下：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nv>CANONICAL_REVISION</span><span class=o>=</span><span class=s1>&#39;latest&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>CANONICAL_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_INBOUND_PORTS</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_LOCAL_EXCLUDE_PORTS</span><span class=o>=</span><span class=s1>&#39;15090,15021,15020&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_METAJSON_LABELS</span><span class=o>=</span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_META_CLUSTER_ID</span><span class=o>=</span><span class=s1>&#39;Kubernetes&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_META_DNS_CAPTURE</span><span class=o>=</span><span class=s1>&#39;true&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_META_MESH_ID</span><span class=o>=</span><span class=s1>&#39;mesh1&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_META_NETWORK</span><span class=o>=</span><span class=s1>&#39;&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_META_WORKLOAD_NAME</span><span class=o>=</span><span class=s1>&#39;demo&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_SERVICE</span><span class=o>=</span><span class=s1>&#39;demo.vm&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>ISTIO_SERVICE_CIDR</span><span class=o>=</span><span class=s1>&#39;*&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>POD_NAMESPACE</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>SERVICE_ACCOUNT</span><span class=o>=</span><span class=s1>&#39;vm&#39;</span>
+</span></span><span class=line><span class=cl><span class=nv>TRUST_DOMAIN</span><span class=o>=</span><span class=s1>&#39;cluster.local&#39;</span>
+</span></span></code></pre></td></tr></table></div></div><p>mesh.yaml 的内容如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -471,40 +398,31 @@ istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34
 </span><span class=lnt>16
 </span><span class=lnt>17
 </span><span class=lnt>18
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>defaultConfig</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>discoveryAddress</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc:15012</span><span class=w>
-</span><span class=w>  </span><span class=nt>meshId</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
-</span><span class=w>  </span><span class=nt>proxyMetadata</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>CANONICAL_REVISION</span><span class=p>:</span><span class=w> </span><span class=l>latest</span><span class=w>
-</span><span class=w>    </span><span class=nt>CANONICAL_SERVICE</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_META_CLUSTER_ID</span><span class=p>:</span><span class=w> </span><span class=l>Kubernetes</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_META_DNS_CAPTURE</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_META_MESH_ID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_META_NETWORK</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_META_WORKLOAD_NAME</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
-</span><span class=w>    </span><span class=nt>ISTIO_METAJSON_LABELS</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span><span class=w>
-</span><span class=w>    </span><span class=nt>POD_NAMESPACE</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
-</span><span class=w>    </span><span class=nt>SERVICE_ACCOUNT</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
-</span><span class=w>    </span><span class=nt>TRUST_DOMAIN</span><span class=p>:</span><span class=w> </span><span class=l>cluster.local</span><span class=w>
-</span><span class=w>  </span><span class=nt>tracing</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>zipkin</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span><span class=nt>address</span><span class=p>:</span><span class=w> </span><span class=l>zipkin.istio-system:9411</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><p>hosts 包含 Istiod 的地址：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>defaultConfig</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>discoveryAddress</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc:15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>meshId</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>proxyMetadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>CANONICAL_REVISION</span><span class=p>:</span><span class=w> </span><span class=l>latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>CANONICAL_SERVICE</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_META_CLUSTER_ID</span><span class=p>:</span><span class=w> </span><span class=l>Kubernetes</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_META_DNS_CAPTURE</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_META_MESH_ID</span><span class=p>:</span><span class=w> </span><span class=l>mesh1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_META_NETWORK</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_META_WORKLOAD_NAME</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ISTIO_METAJSON_LABELS</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;{&#34;app&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-name&#34;:&#34;demo&#34;,&#34;service.istio.io/canonical-revision&#34;:&#34;latest&#34;}&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>POD_NAMESPACE</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>SERVICE_ACCOUNT</span><span class=p>:</span><span class=w> </span><span class=l>vm</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>TRUST_DOMAIN</span><span class=p>:</span><span class=w> </span><span class=l>cluster.local</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tracing</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>zipkin</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>address</span><span class=p>:</span><span class=w> </span><span class=l>zipkin.istio-system:9411</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>hosts 包含 Istiod 的地址：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text>8.134.&lt;xxx&gt;.&lt;xxx&gt; istiod.istio-system.svc
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-6-配置虚拟机>Step 6. 配置虚拟机</h3>
-<p>将前面生成的配置，从 K8s 集群节点机器上，传输到要加入服务网格的虚拟机上。然后依次将配置文件安装到虚拟机上：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>8.134.&lt;xxx&gt;.&lt;xxx&gt; istiod.istio-system.svc
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-6-配置虚拟机>Step 6. 配置虚拟机</h3><p>将前面生成的配置，从 K8s 集群节点机器上，传输到要加入服务网格的虚拟机上。然后依次将配置文件安装到虚拟机上：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -522,74 +440,51 @@ istioctl x workload entry configure -f workloadgroup.yaml -o <span class=s2>&#34
 </span><span class=lnt>14
 </span><span class=lnt>15
 </span><span class=lnt>16
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># 首先，将根证书安装到 /etc/certs 目录下</span>
-mkdir -p /etc/certs
-cp root-cert.pem /etc/certs/root-cert.pem
-
-<span class=c1># 接着，将 istio-token 安装到 /var/run/secrets/tokens 目录下</span>
-mkdir -p /var/run/secrets/tokens
-cp istio-token /var/run/secrets/tokens/istio-token
-
-<span class=c1># 然后，将 cluster.env 安装到 /var/lib/istio/envoy/ 目录下</span>
-cp cluster.env /var/lib/istio/envoy/cluster.env
-
-<span class=c1># 将 mesh 配置文件安装到 /etc/istio/config/ 目录下，并重命名为 mesh</span>
-cp mesh.yaml /etc/istio/config/mesh
-
-<span class=c1># 最后，更新 hosts 文件</span>
-cat hosts &gt;&gt; /etc/hosts
-</code></pre></td></tr></table>
-</div>
-</div><p>并将 /etc/certs/ 等目录的所有者设置为 istio-proxy：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 首先，将根证书安装到 /etc/certs 目录下</span>
+</span></span><span class=line><span class=cl>mkdir -p /etc/certs
+</span></span><span class=line><span class=cl>cp root-cert.pem /etc/certs/root-cert.pem
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 接着，将 istio-token 安装到 /var/run/secrets/tokens 目录下</span>
+</span></span><span class=line><span class=cl>mkdir -p /var/run/secrets/tokens
+</span></span><span class=line><span class=cl>cp istio-token /var/run/secrets/tokens/istio-token
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 然后，将 cluster.env 安装到 /var/lib/istio/envoy/ 目录下</span>
+</span></span><span class=line><span class=cl>cp cluster.env /var/lib/istio/envoy/cluster.env
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 将 mesh 配置文件安装到 /etc/istio/config/ 目录下，并重命名为 mesh</span>
+</span></span><span class=line><span class=cl>cp mesh.yaml /etc/istio/config/mesh
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 最后，更新 hosts 文件</span>
+</span></span><span class=line><span class=cl>cat hosts &gt;&gt; /etc/hosts
+</span></span></code></pre></td></tr></table></div></div><p>并将 /etc/certs/ 等目录的所有者设置为 istio-proxy：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>mkdir -p /etc/istio/proxy
-chown -R istio-proxy /var/lib/istio /etc/certs /etc/istio/proxy /etc/istio/config /var/run/secrets /etc/certs/root-cert.pem
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</h3>
-<p>因阿里云 ECS 的操作系统 Alibaba Cloud Linux 是基于 CentOS 的，因此选择 CentOS 8 的安装包：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>mkdir -p /etc/istio/proxy
+</span></span><span class=line><span class=cl>chown -R istio-proxy /var/lib/istio /etc/certs /etc/istio/proxy /etc/istio/config /var/run/secrets /etc/certs/root-cert.pem
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-7-安装-istio-虚拟机集成运行时>Step 7. 安装 Istio 虚拟机集成运行时：</h3><p>因阿里云 ECS 的操作系统 Alibaba Cloud Linux 是基于 CentOS 的，因此选择 CentOS 8 的安装包：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -LO https://storage.googleapis.com/istio-release/releases/1.12.2/rpm/istio-sidecar.rpm
-rpm -i istio-sidecar.rpm
-</code></pre></td></tr></table>
-</div>
-</div><p>运行 Istio agent：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -LO https://storage.googleapis.com/istio-release/releases/1.12.2/rpm/istio-sidecar.rpm
+</span></span><span class=line><span class=cl>rpm -i istio-sidecar.rpm
+</span></span></code></pre></td></tr></table></div></div><p>运行 Istio agent：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>systemctl start istio
-</code></pre></td></tr></table>
-</div>
-</div><p>检查是否安装成功 <code>cat /var/log/istio/istio.log</code>，日志中无 failed 字样。至此，可以访问 K8s 服务网格中的 Service，如：<code>curl helloworld.sample.svc:5000/hello</code>。</p>
-</article>
-</main>
-<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>systemctl start istio
+</span></span></code></pre></td></tr></table></div></div><p>检查是否安装成功 <code>cat /var/log/istio/istio.log</code>，日志中无 failed 字样。至此，可以访问 K8s 服务网格中的 Service，如：<code>curl helloworld.sample.svc:5000/hello</code>。</p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p>
-<p class="flex items-center mt-0">
+</p><p class="flex items-center mt-0">
 <a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
 </a>
 <a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
 </a>
-</p>
-</footer>
-</body>
-</html>
+</p></footer></body></html>

@@ -21,62 +21,37 @@
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
 Hi Folks - Istio 多集群部署（二）：单一网络主从架构
-</title>
-<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646047372.css>
-<script defer type=text/javascript src=/minima.1646047372.js></script>
-</head>
-<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<link rel=stylesheet href=/minima.1646134251.css>
+<script defer type=text/javascript src=/minima.1646134251.js></script>
+</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
 <div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
-</div>
-<nav class="flex items-center
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
 <a class=ml-5 href=/about>About</a>
-</nav>
-</header>
-<details class="toc toc-lines">
+</nav></header><details class="toc toc-lines">
 <summary></summary>
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
-<li><a href=#主从架构>主从架构</a></li>
-<li><a href=#部署测试>部署测试</a>
+<li><a href=#主从架构>主从架构</a></li><li><a href=#部署测试>部署测试</a>
 <ul>
-<li><a href=#1-配置-ca-中间证书>1. 配置 CA 中间证书</a></li>
-<li><a href=#2-通过-gateway-暴露-istio-控制平面>2. 通过 Gateway 暴露 Istio 控制平面</a></li>
-</ul>
-</li>
-</ul>
-</nav>
-</div>
-</details>
-<h1 class="mt-6 mb-6">Istio 多集群部署（二）：单一网络主从架构</h1>
-<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<li><a href=#1-配置-ca-中间证书>1. 配置 CA 中间证书</a></li><li><a href=#2-通过-gateway-暴露-istio-控制平面>2. 通过 Gateway 暴露 Istio 控制平面</a></li></ul></li></ul></nav></div></details>
+<h1 class="mt-6 mb-6">Istio 多集群部署（二）：单一网络主从架构</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
 Posted at &mdash; Jan 28, 2022
-</div>
-</div>
-<main>
-<p></p>
-<article class=md>
-<h2 id=主从架构>主从架构</h2>
-<p>主从架构指主集群安装 Istio 控制平面，从集群（remote cluster）连接主集群 Istio 控制平面。在主从架构中，从集群需要通过专门的 gateway 访问主集群上的 Istio 控制平面。<strong>简言之，如果集群内部署有 Istio 控制平面，该集群内的工作负载实例访问集群内的控制平面（主集群模式），否则访问外部 Istio 控制平面（从集群模式）</strong>。下图展示的是单网格、单网络、主从架构部署：</p>
-<p><img src=/images/istio-multicluster-deployment-part2-1.svg alt=istio-multicluster-deployment-part2-1></p>
-<h2 id=部署测试>部署测试</h2>
-<p>参考官方文档部署 <a href=https://istio.io/latest/docs/setup/install/multicluster/primary-remote/>Install Primary-Remote</a> 即可，前期工作与上一篇类似。有两点需要注意：</p>
-<h3 id=1-配置-ca-中间证书>1. 配置 CA 中间证书</h3>
-<p><a href=https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust>Configure Trust
-</a> 必不可少，需要正确配置。否则会出现证书问题，istio-ingressgateway 无法启动，报错如下：</p>
-<div class=highlight><div class=chroma>
+</div></div><main>
+<p></p><article class=md>
+<h2 id=主从架构>主从架构</h2><p>主从架构指主集群安装 Istio 控制平面，从集群（remote cluster）连接主集群 Istio 控制平面。在主从架构中，从集群需要通过专门的 gateway 访问主集群上的 Istio 控制平面。<strong>简言之，如果集群内部署有 Istio 控制平面，该集群内的工作负载实例访问集群内的控制平面（主集群模式），否则访问外部 Istio 控制平面（从集群模式）</strong>。下图展示的是单网格、单网络、主从架构部署：</p><p><img src=/images/istio-multicluster-deployment-part2-1.svg alt=istio-multicluster-deployment-part2-1></p><h2 id=部署测试>部署测试</h2><p>参考官方文档部署 <a href=https://istio.io/latest/docs/setup/install/multicluster/primary-remote/>Install Primary-Remote</a> 即可，前期工作与上一篇类似。有两点需要注意：</p><h3 id=1-配置-ca-中间证书>1. 配置 CA 中间证书</h3><p><a href=https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust>Configure Trust
+</a> 必不可少，需要正确配置。否则会出现证书问题，istio-ingressgateway 无法启动，报错如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -93,46 +68,36 @@ Posted at &mdash; Jan 28, 2022
 </span><span class=lnt>13
 </span><span class=lnt>14
 </span><span class=lnt>15
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl get po -n istio-system
-NAME                                   READY   STATUS    RESTARTS   AGE
-istio-ingressgateway-b68f578f6-p8j4p   0/1     Running   <span class=m>0</span>          5m58s
-istiod-7cd5464766-hr8t4                1/1     Running   <span class=m>0</span>          6m2s
-
-
-$ kubectl describe po -n istio-system istio-ingressgateway-b68f578f6-p8j4p
-Events:
-  Type     Reason     Age                      From               Message
-  ----     ------     ----                     ----               -------
-  Normal   Scheduled  9m32s                    default-scheduler  Successfully assigned istio-system/istio-ingressgateway-b68f578f6-p8j4p to cn-guangzhou.192.168.0.92
-  Normal   Pulled     9m32s                    kubelet            Container image <span class=s2>&#34;docker.io/istio/proxyv2:1.12.2&#34;</span> already present on machine
-  Normal   Created    9m32s                    kubelet            Created container istio-proxy
-  Normal   Started    9m32s                    kubelet            Started container istio-proxy
-  Warning  Unhealthy  4m30s <span class=o>(</span>x156 over 9m31s<span class=o>)</span>  kubelet            Readiness probe failed: Get <span class=s2>&#34;http://10.211.0.4:15021/healthz/ready&#34;</span>: dial tcp 10.211.0.4:15021: connect: connection refused
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ kubectl get po -n istio-system
+</span></span><span class=line><span class=cl>NAME                                   READY   STATUS    RESTARTS   AGE
+</span></span><span class=line><span class=cl>istio-ingressgateway-b68f578f6-p8j4p   0/1     Running   <span class=m>0</span>          5m58s
+</span></span><span class=line><span class=cl>istiod-7cd5464766-hr8t4                1/1     Running   <span class=m>0</span>          6m2s
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>$ kubectl describe po -n istio-system istio-ingressgateway-b68f578f6-p8j4p
+</span></span><span class=line><span class=cl>Events:
+</span></span><span class=line><span class=cl>  Type     Reason     Age                      From               Message
+</span></span><span class=line><span class=cl>  ----     ------     ----                     ----               -------
+</span></span><span class=line><span class=cl>  Normal   Scheduled  9m32s                    default-scheduler  Successfully assigned istio-system/istio-ingressgateway-b68f578f6-p8j4p to cn-guangzhou.192.168.0.92
+</span></span><span class=line><span class=cl>  Normal   Pulled     9m32s                    kubelet            Container image <span class=s2>&#34;docker.io/istio/proxyv2:1.12.2&#34;</span> already present on machine
+</span></span><span class=line><span class=cl>  Normal   Created    9m32s                    kubelet            Created container istio-proxy
+</span></span><span class=line><span class=cl>  Normal   Started    9m32s                    kubelet            Started container istio-proxy
+</span></span><span class=line><span class=cl>  Warning  Unhealthy  4m30s <span class=o>(</span>x156 over 9m31s<span class=o>)</span>  kubelet            Readiness probe failed: Get <span class=s2>&#34;http://10.211.0.4:15021/healthz/ready&#34;</span>: dial tcp 10.211.0.4:15021: connect: connection refused
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ kubectl logs -n istio-system istio-ingressgateway-b68f578f6-p8j4p
-2022-01-29T11:54:18.257751Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 672s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
-2022-01-29T11:54:46.065125Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 700s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
-2022-01-29T11:55:00.926243Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 715s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=2-通过-gateway-暴露-istio-控制平面>2. 通过 Gateway 暴露 Istio 控制平面</h3>
-<p>在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。Gateway 本质上是一个运行在网格边缘的 Envoy proxy。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。</p>
-<blockquote>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ kubectl logs -n istio-system istio-ingressgateway-b68f578f6-p8j4p
+</span></span><span class=line><span class=cl>2022-01-29T11:54:18.257751Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 672s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
+</span></span><span class=line><span class=cl>2022-01-29T11:54:46.065125Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 700s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
+</span></span><span class=line><span class=cl>2022-01-29T11:55:00.926243Z     warning envoy config    StreamAggregatedResources gRPC config stream closed since 715s ago: 14, connection error: <span class=nv>desc</span> <span class=o>=</span> <span class=s2>&#34;transport: authentication handshake failed: x509: certificate signed by unknown authority&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=2-通过-gateway-暴露-istio-控制平面>2. 通过 Gateway 暴露 Istio 控制平面</h3><p>在主从架构中，工作负载实例间可以互相通信，但从集群工作负载代理访问主集群的 Istio 控制平面需要通过 gateway。Gateway 本质上是一个运行在网格边缘的 Envoy proxy。以下 YAML 来自 expose-istiod.yaml。注意，这里虽然在一个内网中，但暴露还是通过公网 IP 暴露。</p><blockquote>
 <p>为什么单网络 pod 间可以直接通信还要通过 Gateway 暴露 Istio 控制平面？<br>
-为了启动时有稳定的 IP 地址用于连接。如 <a href=https://www.plantuml.com/plantuml/png/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80>Configure cluster2 as a remote</a> 需要设置固定的地址参数 remotePilotAddress。</p>
-</blockquote>
-<div class=highlight><div class=chroma>
+为了启动时有稳定的 IP 地址用于连接。如 <a href=https://www.plantuml.com/plantuml/png/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80>Configure cluster2 as a remote</a> 需要设置固定的地址参数 remotePilotAddress。</p></blockquote><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -191,91 +156,77 @@ Events:
 </span><span class=lnt>55
 </span><span class=lnt>56
 </span><span class=lnt>57
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w> </span><span class=c># 描述位于服务网格边缘用于接受进出网格的连接的负载均衡器</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-gateway</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=c># 关联实现负载均衡器网关的 Pods</span><span class=w>
-</span><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w> </span><span class=c># 网关上暴露的一组服务端口</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w> </span><span class=c># 端口别名</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w> </span><span class=c># 网关上暴露的端口号</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w> </span><span class=c># TLS 表示连接会使用 SNI 头部来指示目的地址用于路由</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w> </span><span class=c># TLS 选项</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH</span><span class=w> </span><span class=c># 通过 SNI 路由</span><span class=w>
-</span><span class=w>      </span><span class=c># hosts：一个或多个由此网关暴露的、服务网格内的 host。</span><span class=w>
-</span><span class=w>      </span><span class=c># VirtualService 必须绑定一个 Gateway，</span><span class=w>
-</span><span class=w>      </span><span class=c># 且 VirtualService 的 host 必须与 Gateway 的至少一个 host 匹配</span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiodwebhook</span><span class=w>
-</span><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
-</span><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH          </span><span class=w>
-</span><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w></span><span class=nn>---</span><span class=w>
-</span><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
-</span><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>VirtualService</span><span class=w> </span><span class=c># 描述路由规则</span><span class=w>
-</span><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-vs</span><span class=w>
-</span><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
-</span><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w> </span><span class=c># 客户端请求服务器时使用的地址名</span><span class=w>
-</span><span class=w>  </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>  </span><span class=nt>gateways</span><span class=p>:</span><span class=w> </span><span class=c># 关联的 gateway</span><span class=w>
-</span><span class=w>  </span>- <span class=l>istiod-gateway</span><span class=w>
-</span><span class=w>  </span><span class=nt>tls</span><span class=p>:</span><span class=w> </span><span class=c># TLS 和 HTTPS 请求的路由规则</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w> </span><span class=c># 匹配规则</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w> </span><span class=c># 目标服务的真实地址</span><span class=w>
-</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
-</span><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
-</span><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
-</span><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
-</span><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
-</span><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
-</span><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
-</span><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
-</span><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>443</span><span class=w>
-</span></code></pre></td></tr></table>
-</div>
-</div><p>SNI：服务器名称指示。允许服务器在相同的IP地址和TCP端口号上呈现多个证书，并且因此允许在相同的IP地址上提供多个安全（HTTPS）网站（或其他任何基于TLS的服务），而不需要所有这些站点使用相同的证书<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p>
-<section class=footnotes role=doc-endnotes>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w> </span><span class=c># 描述位于服务网格边缘用于接受进出网格的连接的负载均衡器</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 关联实现负载均衡器网关的 Pods</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>istio</span><span class=p>:</span><span class=w> </span><span class=l>eastwestgateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>servers</span><span class=p>:</span><span class=w> </span><span class=c># 网关上暴露的一组服务端口</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiod</span><span class=w> </span><span class=c># 端口别名</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w> </span><span class=c># 网关上暴露的端口号</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w> </span><span class=c># TLS 表示连接会使用 SNI 头部来指示目的地址用于路由</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w> </span><span class=c># TLS 选项</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH</span><span class=w> </span><span class=c># 通过 SNI 路由</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># hosts：一个或多个由此网关暴露的、服务网格内的 host。</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># VirtualService 必须绑定一个 Gateway，</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 且 VirtualService 的 host 必须与 Gateway 的至少一个 host 匹配</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>tls-istiodwebhook</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>tls</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tls</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>PASSTHROUGH          </span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>VirtualService</span><span class=w> </span><span class=c># 描述路由规则</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>istiod-vs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w> </span><span class=c># 客户端请求服务器时使用的地址名</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>gateways</span><span class=p>:</span><span class=w> </span><span class=c># 关联的 gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>istiod-gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tls</span><span class=p>:</span><span class=w> </span><span class=c># TLS 和 HTTPS 请求的路由规则</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w> </span><span class=c># 匹配规则</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w> </span><span class=c># 目标服务的真实地址</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>15012</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>match</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>15017</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>sniHosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;*&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>route</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>istiod.istio-system.svc.cluster.local</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>port</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>443</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>SNI：服务器名称指示。允许服务器在相同的IP地址和TCP端口号上呈现多个证书，并且因此允许在相同的IP地址上提供多个安全（HTTPS）网站（或其他任何基于TLS的服务），而不需要所有这些站点使用相同的证书<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><section class=footnotes role=doc-endnotes>
 <hr>
 <ol>
 <li id=fn:1 role=doc-endnote>
-<p><a href=https://www.cnblogs.com/pam-sh/p/13409492.html>什么是 SNI？</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-</ol>
-</section>
-</article>
-</main>
-<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<p><a href=https://www.cnblogs.com/pam-sh/p/13409492.html>什么是 SNI？</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p>
-<p class="flex items-center mt-0">
+</p><p class="flex items-center mt-0">
 <a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
 </a>
 <a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
 </a>
-</p>
-</footer>
-</body>
-</html>
+</p></footer></body></html>

@@ -19,69 +19,38 @@
 <meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
 <title>
 Hi Folks - Ginkgo 测试框架介绍
-</title>
-<link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
+</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646047372.css>
-<script defer type=text/javascript src=/minima.1646047372.js></script>
-</head>
-<script>try{'theme'in localStorage||(localStorage.theme=window.matchMedia('(prefer-color-scheme: dark)').matches?'dark':'light'),document.querySelector('html').classList.add(localStorage.theme)}catch(a){console.error(a)}</script>
+<link rel=stylesheet href=/minima.1646134251.css>
+<script defer type=text/javascript src=/minima.1646134251.js></script>
+</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
 <div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div>
-</div>
-<nav class="flex items-center
+<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden">
 <a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
 <a class=ml-5 href=/about>About</a>
-</nav>
-</header>
-<details class="toc toc-lines">
+</nav></header><details class="toc toc-lines">
 <summary></summary>
 <div class=pb-1>
 <nav id=TableOfContents>
 <ul>
 <li><a href=#概念>概念</a>
 <ul>
-<li><a href=#specsuite>Spec，Suite</a></li>
-<li><a href=#containersetupsubject-node>Container，Setup，Subject Node</a></li>
-<li><a href=#tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</a></li>
-<li><a href=#decorator>Decorator</a></li>
-<li><a href=#assertion>Assertion</a></li>
-</ul>
-</li>
-<li><a href=#实践>实践</a>
+<li><a href=#specsuite>Spec，Suite</a></li><li><a href=#containersetupsubject-node>Container，Setup，Subject Node</a></li><li><a href=#tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</a></li><li><a href=#decorator>Decorator</a></li><li><a href=#assertion>Assertion</a></li></ul></li><li><a href=#实践>实践</a>
 <ul>
-<li><a href=#随机化>随机化</a></li>
-<li><a href=#并行执行>并行执行</a></li>
-<li><a href=#使用-describetable>使用 DescribeTable</a></li>
-<li><a href=#使用-defercleanup>使用 DeferCleanup</a></li>
-<li><a href=#基准测试>基准测试</a></li>
-<li><a href=#skip-函数>Skip 函数</a></li>
-</ul>
-</li>
-<li><a href=#cli-工具>CLI 工具</a></li>
-</ul>
-</nav>
-</div>
-</details>
-<h1 class="mt-6 mb-6">Ginkgo 测试框架介绍</h1>
-<div class="mb-3 text-xs flex justify-between sm:flex-col">
+<li><a href=#随机化>随机化</a></li><li><a href=#并行执行>并行执行</a></li><li><a href=#使用-describetable>使用 DescribeTable</a></li><li><a href=#使用-defercleanup>使用 DeferCleanup</a></li><li><a href=#基准测试>基准测试</a></li><li><a href=#skip-函数>Skip 函数</a></li></ul></li><li><a href=#cli-工具>CLI 工具</a></li></ul></nav></div></details>
+<h1 class="mt-6 mb-6">Ginkgo 测试框架介绍</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
 <div>
 Posted at &mdash; Feb 25, 2022
-</div>
-</div>
-<main>
-<p></p>
-<article class=md>
-<p>除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。</p>
-<p>如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：</p>
-<div class=highlight><div class=chroma>
+</div></div><main>
+<p></p><article class=md>
+<p>除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。</p><p>如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -114,62 +83,51 @@ Posted at &mdash; Feb 25, 2022
 </span><span class=lnt>29
 </span><span class=lnt>30
 </span><span class=lnt>31
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-  <span class=kd>var</span> <span class=nx>foxInSocks</span><span class=p>,</span> <span class=nx>lesMis</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
-
-  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=nx>lesMis</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
-      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Les Miserables&#34;</span><span class=p>,</span>
-      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span>
-      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>2783</span><span class=p>,</span>
-    <span class=p>}</span>
-
-    <span class=nx>foxInSocks</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
-      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Fox In Socks&#34;</span><span class=p>,</span>
-      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Dr. Seuss&#34;</span><span class=p>,</span>
-      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>24</span><span class=p>,</span>
-    <span class=p>}</span>
-  <span class=p>})</span>
-
-  <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Categorizing books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with more than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a novel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-        <span class=nf>Expect</span><span class=p>(</span><span class=nx>lesMis</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryNovel</span><span class=p>))</span>
-      <span class=p>})</span>
-    <span class=p>})</span>
-
-    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with fewer than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a short story&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-        <span class=nf>Expect</span><span class=p>(</span><span class=nx>foxInSocks</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryShortStory</span><span class=p>))</span>
-      <span class=p>})</span>
-    <span class=p>})</span>
-  <span class=p>})</span>
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><blockquote>
-<p>ginkgo 大量使用了闭包函数。</p>
-</blockquote>
-<h2 id=概念>概念</h2>
-<h3 id=specsuite>Spec，Suite</h3>
-<p>在 Ginkgo 的语境中，spec 是一个个独立的 Ginkgo 测试用例（前面示例代码中 It 函数中的内容），一组 spec 包含在一个 Ginkgo suite 中。Ginkgo suite 是包层级，包名为 *_test，与代码包并列。使用 <code>ginkgo bootstrap</code> 命令自动创建 suite_test.go 代码：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>var</span> <span class=nx>foxInSocks</span><span class=p>,</span> <span class=nx>lesMis</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>lesMis</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Les Miserables&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>2783</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>foxInSocks</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Title</span><span class=p>:</span>  <span class=s>&#34;Fox In Socks&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Dr. Seuss&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Pages</span><span class=p>:</span>  <span class=mi>24</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Categorizing books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with more than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a novel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>Expect</span><span class=p>(</span><span class=nx>lesMis</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryNovel</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>      <span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nf>Context</span><span class=p>(</span><span class=s>&#34;with fewer than 300 pages&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nf>It</span><span class=p>(</span><span class=s>&#34;should be a short story&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>Expect</span><span class=p>(</span><span class=nx>foxInSocks</span><span class=p>.</span><span class=nf>Category</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>books</span><span class=p>.</span><span class=nx>CategoryShortStory</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>      <span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote>
+<p>ginkgo 大量使用了闭包函数。</p></blockquote><h2 id=概念>概念</h2><h3 id=specsuite>Spec，Suite</h3><p>在 Ginkgo 的语境中，spec 是一个个独立的 Ginkgo 测试用例（前面示例代码中 It 函数中的内容），一组 spec 包含在一个 Ginkgo suite 中。Ginkgo suite 是包层级，包名为 *_test，与代码包并列。使用 <code>ginkgo bootstrap</code> 命令自动创建 suite_test.go 代码：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=nb>cd</span> path/to/books
-ginkgo bootstrap
-Generating ginkgo <span class=nb>test</span> suite bootstrap <span class=k>for</span> books in:
-  books_suite_test.go
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>cd</span> path/to/books
+</span></span><span class=line><span class=cl>ginkgo bootstrap
+</span></span><span class=line><span class=cl>Generating ginkgo <span class=nb>test</span> suite bootstrap <span class=k>for</span> books in:
+</span></span><span class=line><span class=cl>  books_suite_test.go
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -183,36 +141,29 @@ Generating ginkgo <span class=nb>test</span> suite bootstrap <span class=k>for</
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>package</span> <span class=nx>books_test</span>
-
-<span class=kn>import</span> <span class=p>(</span>
-  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
-  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
-  <span class=s>&#34;testing&#34;</span>
-<span class=p>)</span>
-
-<span class=kd>func</span> <span class=nf>TestBooks</span><span class=p>(</span><span class=nx>t</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>T</span><span class=p>)</span> <span class=p>{</span>
-  <span class=nf>RegisterFailHandler</span><span class=p>(</span><span class=nx>Fail</span><span class=p>)</span>
-  <span class=nf>RunSpecs</span><span class=p>(</span><span class=nx>t</span><span class=p>,</span> <span class=s>&#34;Books Suite&#34;</span><span class=p>)</span>
-<span class=p>}</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>我们可以把测试用例 spec 加到 suit_test.go 中，也可以放到单独的文件，通过 <code>ginkgo generate</code> 命令创建测试代码文件 _test.go：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>books_test</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=s>&#34;testing&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>TestBooks</span><span class=p>(</span><span class=nx>t</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>T</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nf>RegisterFailHandler</span><span class=p>(</span><span class=nx>Fail</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=nf>RunSpecs</span><span class=p>(</span><span class=nx>t</span><span class=p>,</span> <span class=s>&#34;Books Suite&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们可以把测试用例 spec 加到 suit_test.go 中，也可以放到单独的文件，通过 <code>ginkgo generate</code> 命令创建测试代码文件 _test.go：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>ginkgo generate book
-Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
-  book_test.go
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ginkgo generate book
+</span></span><span class=line><span class=cl>Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
+</span></span><span class=line><span class=cl>  book_test.go
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -226,31 +177,20 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>package</span> <span class=nx>books_test</span>
-
-<span class=kn>import</span> <span class=p>(</span>
-  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
-  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
-
-  <span class=s>&#34;path/to/books&#34;</span>
-<span class=p>)</span>
-
-<span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=containersetupsubject-node>Container，Setup，Subject Node</h3>
-<p>如何编写 Ginkgo 测试用例呢？Ginkgo 通过树形结构构造测试用例树。这个树包含三种节点：Container 节点、Setup 节点、Subject 节点。Container 节点。</p>
-<p>Container 节点用于组织多个 spec，Ginkgo 提供 <code>Describe</code>、<code>When</code>、<code>Conext</code> 方法创建 Container 节点。 Subject 节点放置在 Container 节点中，Subject 节点内实现具体测试用例逻辑。Subject 节点与 spec 概念一一对应。一个 Subject 节点即是一个测试用例。Ginkgo 提供 <code>It</code> 方法创建 Subject 节点。而 Setup 节点用于为测试用例准备环境和依赖、回收资源等操作。Ginkgo 提供 <code>BeforeEach</code>、<code>AfterEach</code>、<code>BeforeSuite</code>、<code>AfterSuite</code> 等函数创建 Setup 节点。</p>
-<p>Ginkgo 推荐的最佳实践是 &ldquo;Declare in container nodes, initialize in setup nodes&rdquo;，在 Container 节点声明，在 Setup 节点初始化，这样每个 spec 都能拿到最新初始化的对象，否则可能出现不同测试同时读写数据，产生脏数据，导致测试结果不确定。</p>
-<h3 id=tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</h3>
-<p>Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。Tree Construction 阶段，构建测试用例树，如果使用了 Ginkgo 提供的 <code>DescribeTable</code> 和 <code>Entry</code> 语法糖，那么会在这个阶段被解析到树结构中。Run 阶段执行 Setup 节点和 Subject 节点，Ginkgo 会在运行每个 spec 前，执行 <code>BeforeEach</code> 闭包函数；结束后，执行 <code>AfterEach</code> 函数。</p>
-<h3 id=decorator>Decorator</h3>
-<p>Spec decorator 用于给测试用例 spec 添加元信息，以调整 spec 在运行阶段的行为。Decorator 作用在 Container 节点和 Subject 节点。以下示例展示了在 Container 节点中使用 <code>Serial</code> decorator 来规定 Container 节点下所有 spec 都应串行执行，而不与其他 spec 并行。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>books_test</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>  <span class=p>.</span> <span class=s>&#34;github.com/onsi/ginkgo/v2&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>.</span> <span class=s>&#34;github.com/onsi/gomega&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=s>&#34;path/to/books&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Books&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=containersetupsubject-node>Container，Setup，Subject Node</h3><p>如何编写 Ginkgo 测试用例呢？Ginkgo 通过树形结构构造测试用例树。这个树包含三种节点：Container 节点、Setup 节点、Subject 节点。Container 节点。</p><p>Container 节点用于组织多个 spec，Ginkgo 提供 <code>Describe</code>、<code>When</code>、<code>Conext</code> 方法创建 Container 节点。 Subject 节点放置在 Container 节点中，Subject 节点内实现具体测试用例逻辑。Subject 节点与 spec 概念一一对应。一个 Subject 节点即是一个测试用例。Ginkgo 提供 <code>It</code> 方法创建 Subject 节点。而 Setup 节点用于为测试用例准备环境和依赖、回收资源等操作。Ginkgo 提供 <code>BeforeEach</code>、<code>AfterEach</code>、<code>BeforeSuite</code>、<code>AfterSuite</code> 等函数创建 Setup 节点。</p><p>Ginkgo 推荐的最佳实践是 &ldquo;Declare in container nodes, initialize in setup nodes&rdquo;，在 Container 节点声明，在 Setup 节点初始化，这样每个 spec 都能拿到最新初始化的对象，否则可能出现不同测试同时读写数据，产生脏数据，导致测试结果不确定。</p><h3 id=tree-construction-phaserun-phase>Tree Construction Phase，Run Phase</h3><p>Suite 运行有两个阶段：Tree Construction Phase 和 Run Phase。Tree Construction 阶段，构建测试用例树，如果使用了 Ginkgo 提供的 <code>DescribeTable</code> 和 <code>Entry</code> 语法糖，那么会在这个阶段被解析到树结构中。Run 阶段执行 Setup 节点和 Subject 节点，Ginkgo 会在运行每个 spec 前，执行 <code>BeforeEach</code> 闭包函数；结束后，执行 <code>AfterEach</code> 函数。</p><h3 id=decorator>Decorator</h3><p>Spec decorator 用于给测试用例 spec 添加元信息，以调整 spec 在运行阶段的行为。Decorator 作用在 Container 节点和 Subject 节点。以下示例展示了在 Container 节点中使用 <code>Serial</code> decorator 来规定 Container 节点下所有 spec 都应串行执行，而不与其他 spec 并行。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -261,130 +201,48 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>7
 </span><span class=lnt>8
 </span><span class=lnt>9
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Something expensive&#34;</span><span class=p>,</span> <span class=nx>Serial</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is a resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=o>...</span>
-  <span class=p>})</span>
-
-  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is another resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=o>...</span>
-  <span class=p>})</span>
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>常用 Decorator 及其功能如下：</p>
-<table>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Something expensive&#34;</span><span class=p>,</span> <span class=nx>Serial</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is a resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>It</span><span class=p>(</span><span class=s>&#34;is another resource hog that can&#39;t run in parallel&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><p>常用 Decorator 及其功能如下：</p><table>
 <thead>
 <tr>
-<th>Decorator</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody>
+<th>Decorator</th><th>描述</th></tr></thead><tbody>
 <tr>
-<td>Serial</td>
-<td>串行执行 spec。底层实现是 Serial spec 在 suite 中最后执行，且运行在 #1 进程。#1 进程执行 Serial spec 前等待所有其他进程先退出。</td>
-</tr>
-<tr>
-<td>Ordered</td>
-<td>作用于 Container 节点，顺序执行节点下的所有 spec</td>
-</tr>
-<tr>
-<td>OncePerOrdered</td>
-<td>作用于 Setup 节点，使 <code>BeforeEach</code> 等会把 Ordered spec 作为整体处理</td>
-</tr>
-<tr>
-<td>Pending</td>
-<td>不执行的测试用例</td>
-</tr>
-<tr>
-<td>Focus</td>
-<td>被执行的测试用例</td>
-</tr>
-<tr>
-<td>Label</td>
-<td>给 spec 打标签，<code>It("is labelled", Label("first label", "second label"), func() { ... })</code></td>
-</tr>
-<tr>
-<td>FlakeAttempts</td>
-<td>如果 spec 失败，不会立刻判断失败，而是尝试 N 次（FlakeAttempts(N)）。还是失败，则判定测试用例失败</td>
-</tr>
-</tbody>
-</table>
-<h3 id=assertion>Assertion</h3>
-<p>Ginkgo 使用 Gomega 做测试用例断言。断言放在 Subject 节点中，一个 Subject 节点可包含多个断言。如果一个 Gomega 断言执行失败，则 spec 失败。示例代码如下。其中 <code>Expect()</code> 函数接收一个参数（actual value）并返回一个 Assertion 接口实例。<code>Equal()</code> 返回一个 GomegaMatcher 接口实例。代码含义是断言 actual value 等于 foo。</p>
-<div class=highlight><div class=chroma>
+<td>Serial</td><td>串行执行 spec。底层实现是 Serial spec 在 suite 中最后执行，且运行在 #1 进程。#1 进程执行 Serial spec 前等待所有其他进程先退出。</td></tr><tr>
+<td>Ordered</td><td>作用于 Container 节点，顺序执行节点下的所有 spec</td></tr><tr>
+<td>OncePerOrdered</td><td>作用于 Setup 节点，使 <code>BeforeEach</code> 等会把 Ordered spec 作为整体处理</td></tr><tr>
+<td>Pending</td><td>不执行的测试用例</td></tr><tr>
+<td>Focus</td><td>被执行的测试用例</td></tr><tr>
+<td>Label</td><td>给 spec 打标签，<code>It("is labelled", Label("first label", "second label"), func() { ... })</code></td></tr><tr>
+<td>FlakeAttempts</td><td>如果 spec 失败，不会立刻判断失败，而是尝试 N 次（FlakeAttempts(N)）。还是失败，则判定测试用例失败</td></tr></tbody></table><h3 id=assertion>Assertion</h3><p>Ginkgo 使用 Gomega 做测试用例断言。断言放在 Subject 节点中，一个 Subject 节点可包含多个断言。如果一个 Gomega 断言执行失败，则 spec 失败。示例代码如下。其中 <code>Expect()</code> 函数接收一个参数（actual value）并返回一个 Assertion 接口实例。<code>Equal()</code> 返回一个 GomegaMatcher 接口实例。代码含义是断言 actual value 等于 foo。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nf>Expect</span><span class=p>(</span><span class=s>&#34;foo&#34;</span><span class=p>).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;foo&#34;</span><span class=p>))</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>除了 Expect，还有 Eventually、Consistently 函数可以发起断言。区别是，Eventually 断言如果失败会反复重试直到成功或超时；Consistently 断言则是重复执行直到第一次发生失败才停止。</p>
-<p>常见 matcher 及其作用如下：</p>
-<table>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>Expect</span><span class=p>(</span><span class=s>&#34;foo&#34;</span><span class=p>).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;foo&#34;</span><span class=p>))</span>
+</span></span></code></pre></td></tr></table></div></div><p>除了 Expect，还有 Eventually、Consistently 函数可以发起断言。区别是，Eventually 断言如果失败会反复重试直到成功或超时；Consistently 断言则是重复执行直到第一次发生失败才停止。</p><p>常见 matcher 及其作用如下：</p><table>
 <thead>
 <tr>
-<th>Matcher</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody>
+<th>Matcher</th><th>描述</th></tr></thead><tbody>
 <tr>
-<td>Equal</td>
-<td>匹配相等</td>
-</tr>
-<tr>
-<td>HaveOccurred</td>
-<td>是 non-nil error</td>
-</tr>
-<tr>
-<td>Succeed</td>
-<td>是 nil-error</td>
-</tr>
-<tr>
-<td>MatchError</td>
-<td>匹配 err.Error() 信息相等，或 error 实例相等</td>
-</tr>
-<tr>
-<td>BeTrue</td>
-<td>匹配 true</td>
-</tr>
-<tr>
-<td>BeZero</td>
-<td>匹配零值</td>
-</tr>
-<tr>
-<td>ConsistOf</td>
-<td>两边数组完全匹配</td>
-</tr>
-<tr>
-<td>ContainElement</td>
-<td>包含元素</td>
-</tr>
-<tr>
-<td>HaveLen</td>
-<td>数组、字符串、字典等长度匹配</td>
-</tr>
-<tr>
-<td>Receive</td>
-<td>可以成功从 channel 接收数据，<code>Eventually(c).Should(Receive(&result))</code></td>
-</tr>
-<tr>
-<td>BeClosed</td>
-<td>channel 关闭状态</td>
-</tr>
-</tbody>
-</table>
-<h2 id=实践>实践</h2>
-<h3 id=随机化>随机化</h3>
-<p>Ginkgo 默认把 suite 下，不同顶层 Container 随机打散运行；顶层 Container 内的 spec 还是顺序执行，已方便调试。如果希望完全打算所有 spec，使用 <code>ginkgo --randomize-all</code> 命令。</p>
-<h3 id=并行执行>并行执行</h3>
-<p>Ginkgo 允许通过命令 <code>ginkgo -p</code> 开启使用多核 CPU 并行执行 spec。<code>GinkgoParallelProcess()</code> 函数可以返回当前 spec 运行所在 CPU 核编号（1到N）。为了避免多个执行程序间数据竞争（data race），我们需要对访问的依赖数据分片、划分命名空间，使各个并行任务在各自命名空间下操作数据，且还需要统一初始化依赖资源，以避免并行任务重复初始化（比如启动数据库等）。<code>SynchronizedBeforeSuite</code> 和 <code>SynchronizedAfterSuite</code> 用于在 Setup 节点为各个并行任务执行一次且仅一次初始化或资源回收动作。其底层原理是首先在 process #1 上运行，运行完成后在把结果发给所有 process：</p>
-<div class=highlight><div class=chroma>
+<td>Equal</td><td>匹配相等</td></tr><tr>
+<td>HaveOccurred</td><td>是 non-nil error</td></tr><tr>
+<td>Succeed</td><td>是 nil-error</td></tr><tr>
+<td>MatchError</td><td>匹配 err.Error() 信息相等，或 error 实例相等</td></tr><tr>
+<td>BeTrue</td><td>匹配 true</td></tr><tr>
+<td>BeZero</td><td>匹配零值</td></tr><tr>
+<td>ConsistOf</td><td>两边数组完全匹配</td></tr><tr>
+<td>ContainElement</td><td>包含元素</td></tr><tr>
+<td>HaveLen</td><td>数组、字符串、字典等长度匹配</td></tr><tr>
+<td>Receive</td><td>可以成功从 channel 接收数据，<code>Eventually(c).Should(Receive(&result))</code></td></tr><tr>
+<td>BeClosed</td><td>channel 关闭状态</td></tr></tbody></table><h2 id=实践>实践</h2><h3 id=随机化>随机化</h3><p>Ginkgo 默认把 suite 下，不同顶层 Container 随机打散运行；顶层 Container 内的 spec 还是顺序执行，已方便调试。如果希望完全打算所有 spec，使用 <code>ginkgo --randomize-all</code> 命令。</p><h3 id=并行执行>并行执行</h3><p>Ginkgo 允许通过命令 <code>ginkgo -p</code> 开启使用多核 CPU 并行执行 spec。<code>GinkgoParallelProcess()</code> 函数可以返回当前 spec 运行所在 CPU 核编号（1到N）。为了避免多个执行程序间数据竞争（data race），我们需要对访问的依赖数据分片、划分命名空间，使各个并行任务在各自命名空间下操作数据，且还需要统一初始化依赖资源，以避免并行任务重复初始化（比如启动数据库等）。<code>SynchronizedBeforeSuite</code> 和 <code>SynchronizedAfterSuite</code> 用于在 Setup 节点为各个并行任务执行一次且仅一次初始化或资源回收动作。其底层原理是首先在 process #1 上运行，运行完成后在把结果发给所有 process：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -401,28 +259,23 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>13
 </span><span class=lnt>14
 </span><span class=lnt>15
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>var</span> <span class=nx>dbClient</span> <span class=o>*</span><span class=nx>db</span><span class=p>.</span><span class=nx>Client</span>
-
-<span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>SynchronizedBeforeSuite</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>[]</span><span class=kt>byte</span> <span class=p>{</span>
-  <span class=c1>//runs *only* on process #1
-</span><span class=c1></span>  <span class=nx>dbRunner</span> <span class=o>:=</span> <span class=nx>db</span><span class=p>.</span><span class=nf>NewRunner</span><span class=p>()</span>
-  <span class=nf>Expect</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nf>Start</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Succeed</span><span class=p>())</span>
-  <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nx>Stop</span><span class=p>)</span>
-  <span class=k>return</span> <span class=p>[]</span><span class=nb>byte</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nf>Address</span><span class=p>())</span>
-<span class=p>}),</span> <span class=kd>func</span><span class=p>(</span><span class=nx>address</span> <span class=p>[]</span><span class=kt>byte</span><span class=p>)</span> <span class=p>{</span>
-  <span class=c1>//runs on *all* processes
-</span><span class=c1></span>  <span class=nx>dbClient</span> <span class=p>=</span> <span class=nx>db</span><span class=p>.</span><span class=nf>NewClient</span><span class=p>()</span>
-  <span class=nf>Expect</span><span class=p>(</span><span class=nx>dbClient</span><span class=p>.</span><span class=nf>Connect</span><span class=p>(</span><span class=nb>string</span><span class=p>(</span><span class=nx>address</span><span class=p>))).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Succeed</span><span class=p>())</span>
-  <span class=nx>dbClient</span><span class=p>.</span><span class=nf>SetNamespace</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;namespace-%d&#34;</span><span class=p>,</span> <span class=nf>GinkgoParallelProcess</span><span class=p>()))</span>
-  <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>dbClient</span><span class=p>.</span><span class=nx>Cleanup</span><span class=p>)</span>
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=使用-describetable>使用 DescribeTable</h3>
-<p>DescribeTable 是 Ginkgo 提供的语法糖，用于表格模板的形式创建 Container 节点。示例代码如下：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>var</span> <span class=nx>dbClient</span> <span class=o>*</span><span class=nx>db</span><span class=p>.</span><span class=nx>Client</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>SynchronizedBeforeSuite</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>[]</span><span class=kt>byte</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>//runs *only* on process #1
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>dbRunner</span> <span class=o>:=</span> <span class=nx>db</span><span class=p>.</span><span class=nf>NewRunner</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>  <span class=nf>Expect</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nf>Start</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Succeed</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>  <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nx>Stop</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=p>[]</span><span class=nb>byte</span><span class=p>(</span><span class=nx>dbRunner</span><span class=p>.</span><span class=nf>Address</span><span class=p>())</span>
+</span></span><span class=line><span class=cl><span class=p>}),</span> <span class=kd>func</span><span class=p>(</span><span class=nx>address</span> <span class=p>[]</span><span class=kt>byte</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>//runs on *all* processes
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>dbClient</span> <span class=p>=</span> <span class=nx>db</span><span class=p>.</span><span class=nf>NewClient</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>  <span class=nf>Expect</span><span class=p>(</span><span class=nx>dbClient</span><span class=p>.</span><span class=nf>Connect</span><span class=p>(</span><span class=nb>string</span><span class=p>(</span><span class=nx>address</span><span class=p>))).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Succeed</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>  <span class=nx>dbClient</span><span class=p>.</span><span class=nf>SetNamespace</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;namespace-%d&#34;</span><span class=p>,</span> <span class=nf>GinkgoParallelProcess</span><span class=p>()))</span>
+</span></span><span class=line><span class=cl>  <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>dbClient</span><span class=p>.</span><span class=nx>Cleanup</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=使用-describetable>使用 DescribeTable</h3><p>DescribeTable 是 Ginkgo 提供的语法糖，用于表格模板的形式创建 Container 节点。示例代码如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -450,39 +303,34 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>24
 </span><span class=lnt>25
 </span><span class=lnt>26
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;book&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-  <span class=kd>var</span> <span class=nx>book</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
-
-  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=nx>book</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
-      <span class=nx>Title</span><span class=p>:</span> <span class=s>&#34;Les Miserables&#34;</span><span class=p>,</span>
-      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span>
-      <span class=nx>Pages</span><span class=p>:</span> <span class=mi>2783</span><span class=p>,</span>
-    <span class=p>}</span>
-    <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>IsValid</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>BeTrue</span><span class=p>())</span>
-  <span class=p>})</span>
-
-  <span class=nf>DescribeTable</span><span class=p>(</span><span class=s>&#34;Extracting the author&#39;s first and last name&#34;</span><span class=p>,</span>
-    <span class=kd>func</span><span class=p>(</span><span class=nx>author</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>isValid</span> <span class=kt>bool</span><span class=p>,</span> <span class=nx>firstName</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>lastName</span> <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
-      <span class=nx>book</span><span class=p>.</span><span class=nx>Author</span> <span class=p>=</span> <span class=nx>author</span>
-      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>IsValid</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>isValid</span><span class=p>))</span>
-      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>AuthorFirstName</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>firstName</span><span class=p>))</span>
-      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>AuthorLastName</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>lastName</span><span class=p>))</span>
-    <span class=p>},</span>
-    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has both names&#34;</span><span class=p>,</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;Victor&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
-    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has one name&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
-    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has a middle name&#34;</span><span class=p>,</span> <span class=s>&#34;Victor Marie Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;Victor&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
-    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has no name&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=kc>false</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>),</span>
-  <span class=p>)</span>
-
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=使用-defercleanup>使用 DeferCleanup</h3>
-<p>DeferCleanup 底层会自动生成 AfterEach 节点<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>，因此可以简化代码，配合 BeforeEach 使用。DeferCleanup() 接收一个函数用于注册清理逻辑，在执行完 spec 后，Ginkgo 会回调注册的清理函数。清理函数可以接收零个或多个参数，示例代码如下：</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;book&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>var</span> <span class=nx>book</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>book</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Title</span><span class=p>:</span> <span class=s>&#34;Les Miserables&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Author</span><span class=p>:</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>Pages</span><span class=p>:</span> <span class=mi>2783</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>IsValid</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>BeTrue</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>DescribeTable</span><span class=p>(</span><span class=s>&#34;Extracting the author&#39;s first and last name&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=kd>func</span><span class=p>(</span><span class=nx>author</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>isValid</span> <span class=kt>bool</span><span class=p>,</span> <span class=nx>firstName</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>lastName</span> <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>book</span><span class=p>.</span><span class=nx>Author</span> <span class=p>=</span> <span class=nx>author</span>
+</span></span><span class=line><span class=cl>      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>IsValid</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>isValid</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>AuthorFirstName</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>firstName</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>      <span class=nf>Expect</span><span class=p>(</span><span class=nx>book</span><span class=p>.</span><span class=nf>AuthorLastName</span><span class=p>()).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=nx>lastName</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has both names&#34;</span><span class=p>,</span> <span class=s>&#34;Victor Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;Victor&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has one name&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has a middle name&#34;</span><span class=p>,</span> <span class=s>&#34;Victor Marie Hugo&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;Victor&#34;</span><span class=p>,</span> <span class=s>&#34;Hugo&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Entry</span><span class=p>(</span><span class=s>&#34;When author has no name&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=kc>false</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>  <span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=使用-defercleanup>使用 DeferCleanup</h3><p>DeferCleanup 底层会自动生成 AfterEach 节点<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>，因此可以简化代码，配合 BeforeEach 使用。DeferCleanup() 接收一个函数用于注册清理逻辑，在执行完 spec 后，Ginkgo 会回调注册的清理函数。清理函数可以接收零个或多个参数，示例代码如下：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -493,22 +341,17 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>7
 </span><span class=lnt>8
 </span><span class=lnt>9
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Reporting book weight&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-  <span class=kd>var</span> <span class=nx>book</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
-
-  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-    <span class=o>...</span>
-    <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>os</span><span class=p>.</span><span class=nx>Setenv</span><span class=p>,</span> <span class=s>&#34;WEIGHT_UNITS&#34;</span><span class=p>,</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Getenv</span><span class=p>(</span><span class=s>&#34;WEIGHT_UNITS&#34;</span><span class=p>))</span>
-  <span class=p>})</span>
-  <span class=o>...</span>
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=基准测试>基准测试</h3>
-<p>Ginkgo 支持 benchmarking。首先创建 Experiment 对象，调用 Sample 方法重复多次执行测试用例并将结果记录到 Experiment 对象中。测试结果也可以保存到文件，以便以后作为基准测试，详见 ExperimentCache <sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>Describe</span><span class=p>(</span><span class=s>&#34;Reporting book weight&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>var</span> <span class=nx>book</span> <span class=o>*</span><span class=nx>books</span><span class=p>.</span><span class=nx>Book</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>BeforeEach</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl>    <span class=nf>DeferCleanup</span><span class=p>(</span><span class=nx>os</span><span class=p>.</span><span class=nx>Setenv</span><span class=p>,</span> <span class=s>&#34;WEIGHT_UNITS&#34;</span><span class=p>,</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Getenv</span><span class=p>(</span><span class=s>&#34;WEIGHT_UNITS&#34;</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>  <span class=p>})</span>
+</span></span><span class=line><span class=cl>  <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=基准测试>基准测试</h3><p>Ginkgo 支持 benchmarking。首先创建 Experiment 对象，调用 Sample 方法重复多次执行测试用例并将结果记录到 Experiment 对象中。测试结果也可以保存到文件，以便以后作为基准测试，详见 ExperimentCache <sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -533,35 +376,31 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>21
 </span><span class=lnt>22
 </span><span class=lnt>23
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// this is our performance spec.  we mark it as Serial to ensure it does not run in
-</span><span class=c1>// parallel with other specs (which could affect performance measurements)
-</span><span class=c1>// we also label it with &#34;measurement&#34; - this is optional but would allow us to filter out
-</span><span class=c1>// measurement-related specs more easily
-</span><span class=c1></span><span class=nf>It</span><span class=p>(</span><span class=s>&#34;repaginates books efficiently&#34;</span><span class=p>,</span> <span class=nx>Serial</span><span class=p>,</span> <span class=nf>Label</span><span class=p>(</span><span class=s>&#34;measurement&#34;</span><span class=p>),</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-	<span class=c1>//we create a new experiment
-</span><span class=c1></span>	<span class=nx>experiment</span> <span class=o>:=</span> <span class=nx>gmeasure</span><span class=p>.</span><span class=nf>NewExperiment</span><span class=p>(</span><span class=s>&#34;Repaginating Books&#34;</span><span class=p>)</span>
-
-	<span class=c1>//Register the experiment as a ReportEntry - this will cause Ginkgo&#39;s reporter infrastructure
-</span><span class=c1></span>	<span class=c1>//to print out the experiment&#39;s report and to include the experiment in any generated reports
-</span><span class=c1></span>	<span class=nf>AddReportEntry</span><span class=p>(</span><span class=nx>experiment</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>experiment</span><span class=p>)</span>
-
-	<span class=c1>//we sample a function repeatedly to get a statistically significant set of measurements
-</span><span class=c1></span>	<span class=nx>experiment</span><span class=p>.</span><span class=nf>Sample</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>idx</span> <span class=kt>int</span><span class=p>)</span> <span class=p>{</span>
-		<span class=nx>book</span> <span class=p>=</span> <span class=nx>books</span><span class=p>.</span><span class=nf>LoadFixture</span><span class=p>(</span><span class=s>&#34;les-miserables.json&#34;</span><span class=p>)</span> <span class=c1>//always start with a fresh copy
-</span><span class=c1></span>		<span class=nx>book</span><span class=p>.</span><span class=nf>SetFontSize</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
-
-		<span class=c1>//measure how long it takes to RecomputePages() and store the duration in a &#34;repagination&#34; measurement
-</span><span class=c1></span>		<span class=nx>experiment</span><span class=p>.</span><span class=nf>MeasureDuration</span><span class=p>(</span><span class=s>&#34;repagination&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-			<span class=nx>book</span><span class=p>.</span><span class=nf>RecomputePages</span><span class=p>()</span>
-		<span class=p>})</span>
-	<span class=p>},</span> <span class=nx>gmeasure</span><span class=p>.</span><span class=nx>SamplingConfig</span><span class=p>{</span><span class=nx>N</span><span class=p>:</span><span class=mi>20</span><span class=p>,</span> <span class=nx>Duration</span><span class=p>:</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Minute</span><span class=p>})</span> <span class=c1>//we&#39;ll sample the function up to 20 times or up to a minute, whichever comes first.
-</span><span class=c1></span><span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>结果输出如下。</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// this is our performance spec.  we mark it as Serial to ensure it does not run in
+</span></span></span><span class=line><span class=cl><span class=c1>// parallel with other specs (which could affect performance measurements)
+</span></span></span><span class=line><span class=cl><span class=c1>// we also label it with &#34;measurement&#34; - this is optional but would allow us to filter out
+</span></span></span><span class=line><span class=cl><span class=c1>// measurement-related specs more easily
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nf>It</span><span class=p>(</span><span class=s>&#34;repaginates books efficiently&#34;</span><span class=p>,</span> <span class=nx>Serial</span><span class=p>,</span> <span class=nf>Label</span><span class=p>(</span><span class=s>&#34;measurement&#34;</span><span class=p>),</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>//we create a new experiment
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>experiment</span> <span class=o>:=</span> <span class=nx>gmeasure</span><span class=p>.</span><span class=nf>NewExperiment</span><span class=p>(</span><span class=s>&#34;Repaginating Books&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>//Register the experiment as a ReportEntry - this will cause Ginkgo&#39;s reporter infrastructure
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>//to print out the experiment&#39;s report and to include the experiment in any generated reports
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nf>AddReportEntry</span><span class=p>(</span><span class=nx>experiment</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>experiment</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>//we sample a function repeatedly to get a statistically significant set of measurements
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>experiment</span><span class=p>.</span><span class=nf>Sample</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>idx</span> <span class=kt>int</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>book</span> <span class=p>=</span> <span class=nx>books</span><span class=p>.</span><span class=nf>LoadFixture</span><span class=p>(</span><span class=s>&#34;les-miserables.json&#34;</span><span class=p>)</span> <span class=c1>//always start with a fresh copy
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>book</span><span class=p>.</span><span class=nf>SetFontSize</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=c1>//measure how long it takes to RecomputePages() and store the duration in a &#34;repagination&#34; measurement
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>experiment</span><span class=p>.</span><span class=nf>MeasureDuration</span><span class=p>(</span><span class=s>&#34;repagination&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>book</span><span class=p>.</span><span class=nf>RecomputePages</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=p>})</span>
+</span></span><span class=line><span class=cl>	<span class=p>},</span> <span class=nx>gmeasure</span><span class=p>.</span><span class=nx>SamplingConfig</span><span class=p>{</span><span class=nx>N</span><span class=p>:</span><span class=mi>20</span><span class=p>,</span> <span class=nx>Duration</span><span class=p>:</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Minute</span><span class=p>})</span> <span class=c1>//we&#39;ll sample the function up to 20 times or up to a minute, whichever comes first.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><p>结果输出如下。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -576,39 +415,26 @@ Generating ginkgo <span class=nb>test</span> <span class=k>for</span> Book in:
 </span><span class=lnt>11
 </span><span class=lnt>12
 </span><span class=lnt>13
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>Will run <span class=m>1</span> of <span class=m>1</span> specs
-------------------------------
-• <span class=o>[</span>2.029 seconds<span class=o>]</span>
-Repaginating Books repaginates books efficiently <span class=o>[</span>measurement<span class=o>]</span>
-/path/to/books_test.go:19
-
-  Begin Report Entries &gt;&gt;
-  Repaginating Books - /path/to/books_test.go:21 @ 11/04/21 13:42:57.936
-    Repaginating Books
-    Name          <span class=p>|</span> N  <span class=p>|</span> Min   <span class=p>|</span> Median <span class=p>|</span> Mean  <span class=p>|</span> StdDev <span class=p>|</span> <span class=nv>Max</span>
-    <span class=o>==========================================================================</span>
-    repagination <span class=o>[</span>duration<span class=o>]</span> <span class=p>|</span> <span class=m>20</span> <span class=p>|</span> 5.1ms <span class=p>|</span> 104ms  <span class=p>|</span> 101.4ms <span class=p>|</span> 52.1ms <span class=p>|</span> 196.4ms
-  <span class=s>&lt;&lt; End Report En</span>tries
-</code></pre></td></tr></table>
-</div>
-</div><h3 id=skip-函数>Skip 函数</h3>
-<h2 id=cli-工具>CLI 工具</h2>
-<p>ginkgo -r：遍历执行文件下所有 spec</p>
-<p>ginkgo &ndash;label-filter=&lt;string>：执行有指定标签的 spec</p>
-<p>ginkgo -v：打印冗余信息</p>
-<p>ginkgo -vv：打印更多荣誉信息（very verbose）</p>
-<p>ginkgo &lt;GINKGO-FLAGS> &lt;PACKAGES> &ndash; &lt;PASS-THROUGHS>：给 suite 传入命令行参数</p>
-<div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>Will run <span class=m>1</span> of <span class=m>1</span> specs
+</span></span><span class=line><span class=cl>------------------------------
+</span></span><span class=line><span class=cl>• <span class=o>[</span>2.029 seconds<span class=o>]</span>
+</span></span><span class=line><span class=cl>Repaginating Books repaginates books efficiently <span class=o>[</span>measurement<span class=o>]</span>
+</span></span><span class=line><span class=cl>/path/to/books_test.go:19
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  Begin Report Entries &gt;&gt;
+</span></span><span class=line><span class=cl>  Repaginating Books - /path/to/books_test.go:21 @ 11/04/21 13:42:57.936
+</span></span><span class=line><span class=cl>    Repaginating Books
+</span></span><span class=line><span class=cl>    Name          <span class=p>|</span> N  <span class=p>|</span> Min   <span class=p>|</span> Median <span class=p>|</span> Mean  <span class=p>|</span> StdDev <span class=p>|</span> <span class=nv>Max</span>
+</span></span><span class=line><span class=cl>    <span class=o>==========================================================================</span>
+</span></span><span class=line><span class=cl>    repagination <span class=o>[</span>duration<span class=o>]</span> <span class=p>|</span> <span class=m>20</span> <span class=p>|</span> 5.1ms <span class=p>|</span> 104ms  <span class=p>|</span> 101.4ms <span class=p>|</span> 52.1ms <span class=p>|</span> 196.4ms
+</span></span><span class=line><span class=cl>  <span class=s>&lt;&lt; End Report En</span>tries
+</span></span></code></pre></td></tr></table></div></div><h3 id=skip-函数>Skip 函数</h3><h2 id=cli-工具>CLI 工具</h2><p>ginkgo -r：遍历执行文件下所有 spec</p><p>ginkgo &ndash;label-filter=&lt;string>：执行有指定标签的 spec</p><p>ginkgo -v：打印冗余信息</p><p>ginkgo -vv：打印更多荣誉信息（very verbose）</p><p>ginkgo &lt;GINKGO-FLAGS> &lt;PACKAGES> &ndash; &lt;PASS-THROUGHS>：给 suite 传入命令行参数</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>ginkgo -- --server-addr<span class=o>=</span><span class=s2>&#34;127.0.0.1:3000&#34;</span> --environment<span class=o>=</span><span class=s2>&#34;STAGING&#34;</span>
-</code></pre></td></tr></table>
-</div>
-</div><div class=highlight><div class=chroma>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ginkgo -- --server-addr<span class=o>=</span><span class=s2>&#34;127.0.0.1:3000&#34;</span> --environment<span class=o>=</span><span class=s2>&#34;STAGING&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -627,57 +453,39 @@ Repaginating Books repaginates books efficiently <span class=o>[</span>measureme
 </span><span class=lnt>15
 </span><span class=lnt>16
 </span><span class=lnt>17
-</span></code></pre></td>
-<td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>var</span> <span class=nx>serverAddr</span><span class=p>,</span> <span class=nx>smokeEnv</span> <span class=kt>string</span>
-
-<span class=c1>// Register your flags in an init function.  This ensures they are registered _before_ `go test` calls flag.Parse().
-</span><span class=c1></span><span class=kd>func</span> <span class=nf>init</span><span class=p>()</span> <span class=p>{</span>
-  <span class=nx>flag</span><span class=p>.</span><span class=nf>StringVar</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>serverAddr</span><span class=p>,</span> <span class=s>&#34;server-addr&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Address of the server to smoke-check&#34;</span><span class=p>)</span>
-  <span class=nx>flag</span><span class=p>.</span><span class=nf>StringVar</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>smokeEnv</span><span class=p>,</span> <span class=s>&#34;environment&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Environment to smoke-check&#34;</span><span class=p>)</span>
-<span class=p>}</span>
-
-<span class=kd>var</span> <span class=nx>client</span> <span class=o>*</span><span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
-<span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>BeforeSuite</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
-  <span class=c1>// Some basic validations - at this point the flags have been parsed so we can access them
-</span><span class=c1></span>  <span class=nf>Expect</span><span class=p>(</span><span class=nx>serverAddr</span><span class=p>).</span><span class=nf>NotTo</span><span class=p>(</span><span class=nf>BeZero</span><span class=p>(),</span> <span class=s>&#34;Please make sure --server-addr is set correctly.&#34;</span><span class=p>)</span>
-  <span class=nf>Expect</span><span class=p>(</span><span class=nx>smokeEnv</span><span class=p>).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Or</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;PRODUCTION&#34;</span><span class=p>),</span> <span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;STAGING&#34;</span><span class=p>)),</span> <span class=s>&#34;--environment must be set to PRODUCTION or STAGING.&#34;</span><span class=p>)</span>
-
-  <span class=c1>//set up a client 
-</span><span class=c1></span>  <span class=nx>client</span> <span class=p>=</span> <span class=nx>client</span><span class=p>.</span><span class=nf>NewClient</span><span class=p>(</span><span class=nx>serverAddr</span><span class=p>)</span>
-<span class=p>})</span>
-</code></pre></td></tr></table>
-</div>
-</div><p>ginkgo &ndash;timeout：设置运行超时</p>
-<section class=footnotes role=doc-endnotes>
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>var</span> <span class=nx>serverAddr</span><span class=p>,</span> <span class=nx>smokeEnv</span> <span class=kt>string</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Register your flags in an init function.  This ensures they are registered _before_ `go test` calls flag.Parse().
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>init</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>flag</span><span class=p>.</span><span class=nf>StringVar</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>serverAddr</span><span class=p>,</span> <span class=s>&#34;server-addr&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Address of the server to smoke-check&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=nx>flag</span><span class=p>.</span><span class=nf>StringVar</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>smokeEnv</span><span class=p>,</span> <span class=s>&#34;environment&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Environment to smoke-check&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>client</span> <span class=o>*</span><span class=nx>client</span><span class=p>.</span><span class=nx>Client</span>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>_</span> <span class=p>=</span> <span class=nf>BeforeSuite</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// Some basic validations - at this point the flags have been parsed so we can access them
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nf>Expect</span><span class=p>(</span><span class=nx>serverAddr</span><span class=p>).</span><span class=nf>NotTo</span><span class=p>(</span><span class=nf>BeZero</span><span class=p>(),</span> <span class=s>&#34;Please make sure --server-addr is set correctly.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=nf>Expect</span><span class=p>(</span><span class=nx>smokeEnv</span><span class=p>).</span><span class=nf>To</span><span class=p>(</span><span class=nf>Or</span><span class=p>(</span><span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;PRODUCTION&#34;</span><span class=p>),</span> <span class=nf>Equal</span><span class=p>(</span><span class=s>&#34;STAGING&#34;</span><span class=p>)),</span> <span class=s>&#34;--environment must be set to PRODUCTION or STAGING.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>//set up a client 
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>client</span> <span class=p>=</span> <span class=nx>client</span><span class=p>.</span><span class=nf>NewClient</span><span class=p>(</span><span class=nx>serverAddr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><p>ginkgo &ndash;timeout：设置运行超时</p><section class=footnotes role=doc-endnotes>
 <hr>
 <ol>
 <li id=fn:1 role=doc-endnote>
-<p><a href=https://www.51cto.com/article/573796.html>一文讲清楚什么是行为驱动开发</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:2 role=doc-endnote>
-<p><a href=https://onsi.github.io/ginkgo/#cleaning-up-our-cleanup-code-defercleanup>Ginkgo Doc</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-<li id=fn:3 role=doc-endnote>
-<p><a href=https://onsi.github.io/gomega/#caching-experiments>Gomega Doc</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p>
-</li>
-</ol>
-</section>
-</article>
-</main>
-<script>const repo='mivinci/hugo-theme-minima',issueTerm='pathname',theme=localStorage.theme?`github-${localStorage.theme}`:'preferred-color-scheme',script=document.createElement('script');script.src='https://utteranc.es/client.js',script.async=!0,script.crossOrigin='anonymous',script.setAttribute('repo',repo),script.setAttribute('issue-term',issueTerm),script.setAttribute('theme',theme),script.setAttribute('label','comment'),document.querySelector('main').appendChild(script)</script>
+<p><a href=https://www.51cto.com/article/573796.html>一文讲清楚什么是行为驱动开发</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote>
+<p><a href=https://onsi.github.io/ginkgo/#cleaning-up-our-cleanup-code-defercleanup>Ginkgo Doc</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote>
+<p><a href=https://onsi.github.io/gomega/#caching-experiments>Gomega Doc</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p>
-<p class="flex items-center mt-0">
+</p><p class="flex items-center mt-0">
 <a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
 </a>
 <a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
 </a>
-</p>
-</footer>
-</body>
-</html>
+</p></footer></body></html>
