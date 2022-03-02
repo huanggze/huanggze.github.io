@@ -3,7 +3,7 @@
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta property="og:title" content="Ginkgo 测试框架介绍">
-<meta property="og:description" content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
+<meta property="og:description" content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
 如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：
 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  var _ = Describe(&#34;Books&#34;, func() { var foxInSocks, lesMis *books.Book BeforeEach(func() { lesMis = &books.">
 <meta property="og:type" content="article">
@@ -12,7 +12,7 @@
 <meta property="article:modified_time" content="2022-02-25T21:32:07+08:00">
 <meta name=twitter:card content="summary">
 <meta name=twitter:title content="Ginkgo 测试框架介绍">
-<meta name=twitter:description content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
+<meta name=twitter:description content="除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法1。行为驱动开发的核心在于&#34;行为&#34;。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。
 如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：
 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  var _ = Describe(&#34;Books&#34;, func() { var foxInSocks, lesMis *books.Book BeforeEach(func() { lesMis = &books.">
 <meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
@@ -23,8 +23,8 @@ Hi Folks - Ginkgo 测试框架介绍
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646134251.css>
-<script defer type=text/javascript src=/minima.1646134251.js></script>
+<link rel=stylesheet href=/minima.1646217992.css>
+<script defer type=text/javascript src=/minima.1646217992.js></script>
 </head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
@@ -50,7 +50,7 @@ whitespace-nowrap overflow-x-auto overflow-y-hidden">
 Posted at &mdash; Feb 25, 2022
 </div></div><main>
 <p></p><article class=md>
-<p>除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。</p><p>如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：</p><div class=highlight><div class=chroma>
+<p>除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 &ldquo;Given-When-Then&rdquo; 的形式描述出来时，就形成了一种范式化的领域建模规约。</p><p>如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
@@ -429,7 +429,22 @@ Posted at &mdash; Feb 25, 2022
 </span></span><span class=line><span class=cl>    <span class=o>==========================================================================</span>
 </span></span><span class=line><span class=cl>    repagination <span class=o>[</span>duration<span class=o>]</span> <span class=p>|</span> <span class=m>20</span> <span class=p>|</span> 5.1ms <span class=p>|</span> 104ms  <span class=p>|</span> 101.4ms <span class=p>|</span> 52.1ms <span class=p>|</span> 196.4ms
 </span></span><span class=line><span class=cl>  <span class=s>&lt;&lt; End Report En</span>tries
-</span></span></code></pre></td></tr></table></div></div><h3 id=skip-函数>Skip 函数</h3><h2 id=cli-工具>CLI 工具</h2><p>ginkgo -r：遍历执行文件下所有 spec</p><p>ginkgo &ndash;label-filter=&lt;string>：执行有指定标签的 spec</p><p>ginkgo -v：打印冗余信息</p><p>ginkgo -vv：打印更多荣誉信息（very verbose）</p><p>ginkgo &lt;GINKGO-FLAGS> &lt;PACKAGES> &ndash; &lt;PASS-THROUGHS>：给 suite 传入命令行参数</p><div class=highlight><div class=chroma>
+</span></span></code></pre></td></tr></table></div></div><h3 id=skip-函数>Skip 函数</h3><p>使用 Skip() 函数可以跳过一条 spec。Skip 可以在 Setup 节点和 Subject 节点上调用。</p><div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>It</span><span class=p>(</span><span class=s>&#34;should do something, if it can&#34;</span><span class=p>,</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>!</span><span class=nx>someCondition</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Skip</span><span class=p>(</span><span class=s>&#34;Special condition wasn&#39;t met.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=cli-工具>CLI 工具</h2><p>ginkgo -r：遍历执行文件下所有 spec</p><p>ginkgo &ndash;label-filter=&lt;string>：执行有指定标签的 spec</p><p>ginkgo -v：打印冗余信息</p><p>ginkgo -vv：打印更多荣誉信息（very verbose）</p><p>ginkgo &lt;GINKGO-FLAGS> &lt;PACKAGES> &ndash; &lt;PASS-THROUGHS>：给 suite 传入命令行参数</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span></code></pre></td><td class=lntd>
