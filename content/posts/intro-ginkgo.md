@@ -5,7 +5,7 @@ toc: true
 categories: ["go"]
 ---
 
-除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发的技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法[^1]。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 "Given-When-Then" 的形式描述出来时，就形成了一种范式化的领域建模规约。
+除了 Go testing 包提供的测试框架，还可以使用 Ginkgo 测试框架。Ginkgo 是一个行为驱动开发（Behavior Driven Development，BDD）测试框架。BDD 是一种敏捷开发技术，建立在测试驱动开发（Test Driven Development，TDD）基础之上，强调使用 DSL（Domain Specific Language，领域特定语言）描述用户行为、定义业务需求，是需求分析人员、开发人员与测试人员进行沟通的有效方法[^1]。行为驱动开发的核心在于"行为"。当业务需求被划分为不同的业务场景，并以 "Given-When-Then" 的形式描述出来时，就形成了一种范式化的领域建模规约。
 
 如下是使用 Ginkgo 测试框架搭建的测试用例，描述的业务场景是根据书本页数（Book.Pages）对书进行分类，小于 300 页应为短篇，大于 300 页应为小说：
 
@@ -288,6 +288,17 @@ Repaginating Books repaginates books efficiently [measurement]
 ```
 
 ### Skip 函数
+
+使用 Skip(<message>) 函数可以跳过一条 spec。Skip 可以在 Setup 节点和 Subject 节点上调用。
+
+```go
+It("should do something, if it can", func() {
+  if !someCondition {
+    Skip("Special condition wasn't met.")
+  }
+  ...
+})
+```
 
 ## CLI 工具
 
