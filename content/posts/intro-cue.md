@@ -3,7 +3,7 @@ title: "开源数据约束语言 CUE"
 date: 2022-02-28T09:42:28+08:00
 mermaid: true
 toc: true
-categories: ["go"]
+categories: ["配置"]
 ---
 
 CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。
