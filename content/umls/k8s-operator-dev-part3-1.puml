@@ -160,10 +160,25 @@ package client-go/cache {
     class cache << (S,Aquamarine) >> {
         - cacheStorage ThreadSafeStore
         - keyFunc KeyFunc
+
+        + Add(obj interface{}) error
+        + Update(obj interface{}) error
+        + Delete(obj interface{}) error
+        + List() []interface{}
+        + ListKeys() []string
+        + GetIndexers() Indexers
+        + Index(indexName string, obj interface{}) ([]interface{}, error)
+        + IndexKeys(indexName, indexKey string) ([]string, error)
+        + ListIndexFuncValues(indexName string) []string
+        + ByIndex(indexName, indexKey string) ([]interface{}, error)
+        + AddIndexers(newIndexers Indexers) error
+        + Get(obj interface{}) (item interface{}, exists bool, err error)
+        + GetByKey(key string) (item interface{}, exists bool, err error)
+        + Replace(list []interface{}, resourceVersion string) error
+        + Resync() error
     }
 }
 
-"controller-runtime/cache" +-- "controller-runtime/cache/internal"
 InformersMap *-- informerCache
 Informers *-- Cache
 Reader *-- Cache
@@ -180,5 +195,6 @@ Store *-- Indexer
 Indexer <.. SharedIndexInformer : AddIndexers()\nGetIndexer()
 SharedIndexInformer <|.. sharedIndexInformer
 Informer <|.. sharedIndexInformer
-Store <|.. cache
+Indexer <|.. cache
+cache *-- sharedIndexInformer
 @enduml
