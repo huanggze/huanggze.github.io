@@ -21,6 +21,14 @@ sample vs. location【function】
 
 https://www.polarsignals.com/blog/posts/2021/08/03/diy-pprof-profiles-using-go/
 
+trace vs. profile
+Trace files can be generated with:
+
+    - runtime/trace.Start
+    - net/http/pprof package
+    - go test -trace
+
+
 24种 output
 node()
 
