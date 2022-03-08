@@ -25,8 +25,8 @@ Hi Folks - Istio Egress 网关实践
 <link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646701589.css>
-<script defer type=text/javascript src=/minima.1646701589.js></script>
+<link rel=stylesheet href=/minima.1646707845.css>
+<script defer type=text/javascript src=/minima.1646707845.js></script>
 </head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
 <body class="sm:mx-5 sm:my-0">
 <header class="flex justify-between items-center mb-6 sm:my-3">
@@ -159,7 +159,44 @@ Posted at &mdash; Feb 18, 2022
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>resolution</span><span class=p>:</span><span class=w> </span><span class=l>STATIC</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=l>EOF</span><span class=w>
-</span></span></span></code></pre></td></tr></table></div></div><p>此时，虽然可以访问 192.168.0.78:1234，但通过 istio-proxy 容器日志可以看到，是直连访问。</p><div class=highlight><div class=chroma>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote>
+<p>ServiceEntry 的坑：</p><ul>
+<li><code>spec.addresses</code> 在 ports.protocol=HTTP 时被忽略<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。因此，如果需要通过 IP 访问 HTTP 服务，应把 <code>ports.protocol</code> 设置为 TCP；</li><li>对于没有域名只有 IP 的外部服务，可以把外部服务通过 Headless Service + Endpoint 注册到 K8s 的 DNS 组件（否则得用其他 DNS 服务器），就可以使用 DNS 模式了<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>；</li><li>可解析的域名 + STATIC + spec.endpoints 组合可以把任意可解析的域名请求转发到指定 endpoints<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>：</li></ul><div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># apply 后就可以 kubectl exec sleep-7c7db887d8-9dnd7 -- curl -s www.baidu.com:1234</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceEntry</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>my-server-se</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>www.baidu.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>1234</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>http</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>HTTP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>location</span><span class=p>:</span><span class=w> </span><span class=l>MESH_EXTERNAL</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>resolution</span><span class=p>:</span><span class=w> </span><span class=l>STATIC</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>endpoints</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>address</span><span class=p>:</span><span class=w> </span><span class=m>192.168.0.78</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div></blockquote><p>此时，虽然可以访问 192.168.0.78:1234，但通过 istio-proxy 容器日志可以看到，是直连访问。</p><div class=highlight><div class=chroma>
 <table class=lntable><tr><td class=lntd>
 <pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
@@ -336,7 +373,10 @@ Posted at &mdash; Feb 18, 2022
 <hr>
 <ol>
 <li id=fn:1 role=doc-endnote>
-<p><a href=https://istio.io/latest/docs/tasks/observability/logs/access-log/>Envoy Access Logs</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
+<p><a href=https://istio.io/latest/docs/tasks/observability/logs/access-log/>Envoy Access Logs</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote>
+<p><a href=https://wiki.shileizcc.com/confluence/display/istio/Istio+ServiceEntry>Istio ServiceEntry 中文文档</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote>
+<p><a href=https://stackoverflow.com/questions/56094753/istio-connect-to-an-external-ip/56100843#56100843>Stack Overflow: Istio - Connect to an external ip</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4 role=doc-endnote>
+<p><a href=https://blog.csdn.net/hxpjava1/article/details/117325083>ServiceEntry详解</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
 <footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
 <p class="mt-0 text-sm">
 © huanggze 2021 |
