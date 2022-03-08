@@ -110,3 +110,64 @@ func main() {
 https://slcjordan.github.io/posts/pprof/
 https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
 https://medium.com/happyfresh-fleet-tracker/danny-profiling-1c60a19d30de
+
+pprof list
+(pprof) list func1
+Total: 2.67s
+ROUTINE ======================== main.main.func1 in /Users/huanggze/go/src/awesomeProject/main.go
+2.65s      2.67s (flat, cum)   100% of Total
+.          .     20:   for i := 0; i < 3; i++ {
+.          .     21:           idx := i
+.          .     22:           wg.Add(1)
+.          .     23:           go pprof.Do(context.Background(), pprof.Labels("idx", fmt.Sprintf("%d", idx)), func(ctx context.Context) {
+.          .     24:                   sum := 0
+2.65s      2.65s     25:                   for d := 0; d < 3_000_000_000; d++ {
+.          .     26:                           sum += d
+.          .     27:                   }
+.       20ms     28:                   wg.Done()
+.          .     29:           })
+.          .     30:   }
+.          .     31:
+.          .     32:   wg.Wait()
+.          .     33:}
+
+
+localhost:9090/debug/pprof/goroutine
+当时多少个 goroutine(数量)
+
+heap profile
+从上一次GC到现在算起？
+
+rate: 512kb，每有一次超过 512kb 的内存分配，就采样，记录那次分配
+The profiler aims to sample an average of one allocation per MemProfileRate bytes allocated.
+采集一次分配，一次怎样的分配（512kb 的分配）
+```go
+func malloc(size):
+  object = ... // allocation magic
+
+  if poisson_sample(size):
+    s = stacktrace()
+    mem_profile[s].allocs++
+    mem_profile[s].alloc_bytes += size
+    track_profiled(object, s)
+
+  return object
+```
+从上一次 GC 开始
+```go
+func main() {
+	f, _ := os.Create("mem.pb")
+	defer f.Close()
+
+	runtime.GC()
+	defer pprof.WriteHeapProfile(f)
+
+	s := make([]byte, 0)
+	for i:= 0; i < 1024 * 1024 * 10; i++{
+		s = append(s, 1)
+	}
+
+	s = nil
+	runtime.GC()
+}
+```
