@@ -1,114 +1,54 @@
-<!doctype html><html lang=en>
-<head>
-<meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<meta property="og:title" content="Istio 多集群部署（一）：单一网络多主架构">
-<meta property="og:description" content="单网格、单网络、多主架构 单网格、单网络、多主架构部署对应官方文档 Install Multi-Primary。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Istio 多集群部署（一）：单一网络多主架构"><meta property="og:description" content="单网格、单网络、多主架构 单网格、单网络、多主架构部署对应官方文档 Install Multi-Primary。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：
 单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。
  注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。
  多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此单网格下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver1。
-环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.">
-<meta property="og:type" content="article">
-<meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part1/"><meta property="article:section" content="posts">
-<meta property="article:published_time" content="2022-01-28T15:28:19+08:00">
-<meta property="article:modified_time" content="2022-01-28T15:28:19+08:00">
-<meta name=twitter:card content="summary">
-<meta name=twitter:title content="Istio 多集群部署（一）：单一网络多主架构">
-<meta name=twitter:description content="单网格、单网络、多主架构 单网格、单网络、多主架构部署对应官方文档 Install Multi-Primary。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：
+环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part1/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-01-28T15:28:19+08:00"><meta property="article:modified_time" content="2022-01-28T15:28:19+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Istio 多集群部署（一）：单一网络多主架构"><meta name=twitter:description content="单网格、单网络、多主架构 单网格、单网络、多主架构部署对应官方文档 Install Multi-Primary。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：
 单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。
  注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。
  多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此单网格下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver1。
-环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.">
-<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
-<title>
-Hi Folks - Istio 多集群部署（一）：单一网络多主架构
-</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
-<link rel=preconnect href=https://fonts.googleapis.com>
-<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646894794.css>
-<script defer type=text/javascript src=/minima.1646894794.js></script>
-</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
-<body class="sm:mx-5 sm:my-0">
-<header class="flex justify-between items-center mb-6 sm:my-3">
-<div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
-whitespace-nowrap overflow-x-auto overflow-y-hidden">
-<a class=ml-5 href=/>Home</a>
+环境准备 本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Istio 多集群部署（一）：单一网络多主架构</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1646927559.css><script defer type=text/javascript src=/minima.1646927559.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
-<a class=ml-5 href=/about>About</a>
-</nav></header><details class="toc toc-lines">
-<summary></summary>
-<div class=pb-1>
-<nav id=TableOfContents>
-<ul>
-<li><a href=#单网格单网络多主架构>单网格、单网络、多主架构</a></li><li><a href=#环境准备>环境准备</a></li><li><a href=#部署-istio-控制平面>部署 Istio 控制平面</a>
-<ul>
-<li><a href=#step-1-证书配置>Step 1. 证书配置</a></li><li><a href=#step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</a></li><li><a href=#step-3-设置服务发现>Step 3. 设置服务发现</a></li></ul></li><li><a href=#测试验证>测试验证</a></li></ul></nav></div></details>
-<h1 class="mt-6 mb-6">Istio 多集群部署（一）：单一网络多主架构</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
-<div>
-Posted at &mdash; Jan 28, 2022
-</div></div><main>
-<p></p><article class=md>
-<h2 id=单网格单网络多主架构>单网格、单网络、多主架构</h2><p>单网格、单网络、多主架构部署对应官方文档 <a href=https://istio.io/latest/docs/setup/install/multicluster/multi-primary/>Install Multi-Primary</a>。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：</p><p><img src=/images/istio-multicluster-deployment-part1-1.svg alt=istio-multicluster-deployment-part1-1></p><p>单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。</p><blockquote>
-<p>注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。</p></blockquote><p>多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此<strong>单网格</strong>下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><h2 id=环境准备>环境准备</h2><p>本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。</p><p>在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#单网格单网络多主架构>单网格、单网络、多主架构</a></li><li><a href=#环境准备>环境准备</a></li><li><a href=#部署-istio-控制平面>部署 Istio 控制平面</a><ul><li><a href=#step-1-证书配置>Step 1. 证书配置</a></li><li><a href=#step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</a></li><li><a href=#step-3-设置服务发现>Step 3. 设置服务发现</a></li></ul></li><li><a href=#测试验证>测试验证</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">Istio 多集群部署（一）：单一网络多主架构</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Jan 28, 2022</div></div><main><p></p><article class=md><h2 id=单网格单网络多主架构>单网格、单网络、多主架构</h2><p>单网格、单网络、多主架构部署对应官方文档 <a href=https://istio.io/latest/docs/setup/install/multicluster/multi-primary/>Install Multi-Primary</a>。单网格、单网络、多主架构部署指单个 Istio 服务网格（service mesh）运行在单个完全互联的网络上。网络内有多个集群，同时存在多个主集群（primary cluster）运行 Istio 控制平面。示例架构如下图：</p><p><img src=/images/istio-multicluster-deployment-part1-1.svg alt=istio-multicluster-deployment-part1-1></p><p>单一网络模型，即所有工作负载实例（workload instances，指 pods）都可以直接相互访问、完全互联，而无需 Istio 网关。</p><blockquote><p>注意：这里「可以直接相互访问」指的是 Pod 与 Pod 间互通（可互 ping），包括跨集群的 Pod 通信。不是指 Service 之间 Cluster IP 互相可 ping，Service 的 ClusterIP 不支持跨集群访问。ClusterIP 是虚拟 IP，没有对应实体，而跨集群 Pod IP 能互 ping 是因为路由表中存在对应网段的下一跳节点。</p></blockquote><p>多主架构指多个集群下，存在多个单独部署的 Istio 控制平面。我们知道，Istio 控制平面通过向工作负载实例的 Envoy 代理下发服务端点信息实现流量管理。因此<strong>单网格</strong>下，Istio 控制平面需要拿到所有集群的服务端点信息。服务端点发现需要配置 Istio 控制平面使其能访问每个集群的 kube-apiserver<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><h2 id=环境准备>环境准备</h2><p>本文使用阿里云托管 K8s 服务，在同一 VPC 下，部署两个集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟单网络、多集群。注意，在创建托管 K8s 界面里应设置 Pod CIDR 为不同网段，如 10.210.0.0/16 和 10.211.0.0/16。创建完后，检查跨集群 Pod 是否可以互相通信（互 ping Pod IP）。同一 VPC 下部署的集群 Pod 互通是因为 VPC 路由表存在对应的网段下一跳节点（通过阿里云控制台「专有网络 > 路由表」查看）。</p><p>在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
 </span></span><span class=line><span class=cl>tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
 </span></span><span class=line><span class=cl>mv istioctl /usr/local/bin/
-</span></span></code></pre></td></tr></table></div></div><p>最后，为了启用 kubectl 命令，拷贝一份 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p><h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2><p>分别在 cluster1 和 cluster2 上安装部署 Istio 控制平面，实现前面图中的架构。实践中发现，在阿里云环境部署与官方文档相比，有少许额外工作需要做，请特别注意。因此，我们不能完全按照官方文档来，要理解原理，底层逻辑都是一样的。</p><h3 id=step-1-证书配置>Step 1. 证书配置</h3><p>单网格、多集群架构下，主集群之间要相互建立信任。<a href=https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust>官方文档</a>提供了用于快速测试的证书配置方法：配置一个自签名的根证书，然后通过根证书为两个集群单独生成中间证书，如下图。Istio 使用中间证书安装。如果没有单独配置根证书，Istio 会默认生成自签名的 CA 证书用于签发工作负载实例的证书，导致网格隔离、不同控制平面签发的证书无法互认。另外注意，在已有 Istio 集群上测试会因为需要配置新证书而重新安装 Istio。</p><p><img src=/images/istio-multicluster-deployment-part1-2.svg alt=istio-multicluster-deployment-part1-2></p><p>首先，在 cluster1 上 clone istio 代码仓库，里面包含创建证书相关的脚本：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>最后，为了启用 kubectl 命令，拷贝一份 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p><h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2><p>分别在 cluster1 和 cluster2 上安装部署 Istio 控制平面，实现前面图中的架构。实践中发现，在阿里云环境部署与官方文档相比，有少许额外工作需要做，请特别注意。因此，我们不能完全按照官方文档来，要理解原理，底层逻辑都是一样的。</p><h3 id=step-1-证书配置>Step 1. 证书配置</h3><p>单网格、多集群架构下，主集群之间要相互建立信任。<a href=https://istio.io/latest/docs/setup/install/multicluster/before-you-begin/#configure-trust>官方文档</a>提供了用于快速测试的证书配置方法：配置一个自签名的根证书，然后通过根证书为两个集群单独生成中间证书，如下图。Istio 使用中间证书安装。如果没有单独配置根证书，Istio 会默认生成自签名的 CA 证书用于签发工作负载实例的证书，导致网格隔离、不同控制平面签发的证书无法互认。另外注意，在已有 Istio 集群上测试会因为需要配置新证书而重新安装 Istio。</p><p><img src=/images/istio-multicluster-deployment-part1-2.svg alt=istio-multicluster-deployment-part1-2></p><p>首先，在 cluster1 上 clone istio 代码仓库，里面包含创建证书相关的脚本：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>yum install git -y
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>yum install git -y
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>git clone https://ghproxy.com/https://github.com/istio/istio.git
 </span></span><span class=line><span class=cl><span class=nb>cd</span> istio
 </span></span><span class=line><span class=cl>git checkout tags/1.12.2 -b 1.12.2
-</span></span></code></pre></td></tr></table></div></div><p>在 cluster1 机器上，创建根证书。以下命令会生成 root-cert.pem 等四个文件。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>在 cluster1 机器上，创建根证书。以下命令会生成 root-cert.pem 等四个文件。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>mkdir -p certs
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>mkdir -p certs
 </span></span><span class=line><span class=cl><span class=nb>pushd</span> certs
 </span></span><span class=line><span class=cl>make -f ../tools/certs/Makefile.selfsigned.mk root-ca
-</span></span></code></pre></td></tr></table></div></div><p>为 cluster1、cluster2 生成中间证书和密钥：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>为 cluster1、cluster2 生成中间证书和密钥：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>make -f ../tools/certs/Makefile.selfsigned.mk cluster1-cacerts
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>make -f ../tools/certs/Makefile.selfsigned.mk cluster1-cacerts
 </span></span><span class=line><span class=cl>make -f ../tools/certs/Makefile.selfsigned.mk cluster2-cacerts
-</span></span></code></pre></td></tr></table></div></div><p>将 cluster2 的证书发送到 cluster2 机器上（IP 地址是 192.168.0.92）：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>将 cluster2 的证书发送到 cluster2 机器上（IP 地址是 192.168.0.92）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 机器上</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 机器上</span>
 </span></span><span class=line><span class=cl>scp cluster2/* 192.168.0.92:~
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 在 cluster2 机器上</span>
 </span></span><span class=line><span class=cl>mkdir cluster2
 </span></span><span class=line><span class=cl>mv *.pem cluster2
-</span></span></code></pre></td></tr></table></div></div><h3 id=step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</h3><p>在 cluster1 机器上安装 Istio。IstioOperator YAML 是安装配置文件。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</h3><p>在 cluster1 机器上安装 Istio。IstioOperator YAML 是安装配置文件。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -128,8 +68,7 @@ Posted at &mdash; Jan 28, 2022
 </span><span class=lnt>18
 </span><span class=lnt>19
 </span><span class=lnt>20
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
 </span></span><span class=line><span class=cl>kubectl create secret generic cacerts -n istio-system <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-cert.pem <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-key.pem <span class=se>\
@@ -149,9 +88,7 @@ Posted at &mdash; Jan 28, 2022
 </span></span></span><span class=line><span class=cl><span class=s>      network: network1
 </span></span></span><span class=line><span class=cl><span class=s>EOF</span>
 </span></span><span class=line><span class=cl>istioctl install -f cluster1.yaml
-</span></span></code></pre></td></tr></table></div></div><p>类似地，在 cluster2 上执行：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><p>类似地，在 cluster2 上执行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -171,8 +108,7 @@ Posted at &mdash; Jan 28, 2022
 </span><span class=lnt>18
 </span><span class=lnt>19
 </span><span class=lnt>20
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
 </span></span><span class=line><span class=cl>kubectl create secret generic cacerts -n istio-system <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster2/ca-cert.pem <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster2/ca-key.pem <span class=se>\
@@ -192,22 +128,17 @@ Posted at &mdash; Jan 28, 2022
 </span></span></span><span class=line><span class=cl><span class=s>      network: network1
 </span></span></span><span class=line><span class=cl><span class=s>EOF</span>
 </span></span><span class=line><span class=cl>istioctl install -f cluster2.yaml
-</span></span></code></pre></td></tr></table></div></div><h3 id=step-3-设置服务发现>Step 3. 设置服务发现</h3><p>为了能让两个主集群互相了解对方集群上部署的服务以及后端实例，须使 Istio 控制平面能互相访问对方 kube-apiserver。首先，把各自 kubeconfig 文件发给对方。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-3-设置服务发现>Step 3. 设置服务发现</h3><p>为了能让两个主集群互相了解对方集群上部署的服务以及后端实例，须使 Istio 控制平面能互相访问对方 kube-apiserver。首先，把各自 kubeconfig 文件发给对方。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 机器上，把自己的 kubeconfig 发给 cluster2 机器（IP 地址 192.168.0.92）</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 机器上，把自己的 kubeconfig 发给 cluster2 机器（IP 地址 192.168.0.92）</span>
 </span></span><span class=line><span class=cl>scp .kube/config 192.168.0.92:~/.kube/cluster1.yaml
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 在 cluster2 机器上，把自己的 kubeconfig 发给 cluster1 机器（IP 地址 192.168.0.87）</span>
 </span></span><span class=line><span class=cl>scp .kube/config 192.168.0.87:~/.kube/cluster2.yaml
-</span></span></code></pre></td></tr></table></div></div><p>在各自集群机器上分别执行创建 remote secret（这里，我没有用到官方文档提到的环境变量 CTX_CLUSTER1，因为是直接在各自集群分开操作）：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>在各自集群机器上分别执行创建 remote secret（这里，我没有用到官方文档提到的环境变量 CTX_CLUSTER1，因为是直接在各自集群分开操作）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
@@ -216,8 +147,7 @@ Posted at &mdash; Jan 28, 2022
 </span><span class=lnt>7
 </span><span class=lnt>8
 </span><span class=lnt>9
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster2 上配置访问 cluster1</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster2 上配置访问 cluster1</span>
 </span></span><span class=line><span class=cl>istioctl x create-remote-secret <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    --kubeconfig<span class=o>=</span>.kube/cluster1.yaml <span class=p>|</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    kubectl apply -f -
@@ -226,11 +156,7 @@ Posted at &mdash; Jan 28, 2022
 </span></span><span class=line><span class=cl>istioctl x create-remote-secret <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    --kubeconfig<span class=o>=</span>.kube/cluster2.yaml <span class=p>|</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    kubectl apply -f -
-</span></span></code></pre></td></tr></table></div></div><blockquote>
-<p><code>istioctl x create-remote-secret</code> 创建的 remote secret 在哪里被使用？<br>
-secret 并非通过 volumemount 的形式挂载到 istiod Pod 中使用，而是 istiod 有 secret API 的权限，详见 istiod 的 Role 和 Rolebinding。只有安装了 remote secret，<code>istioctl remote-clusters</code> 才会正确打印出远端集群。</p></blockquote><p>至此，单网格、单网络、多主架构已部署好。</p><h2 id=测试验证>测试验证</h2><p>可参考<a href=https://istio.io/latest/docs/setup/install/multicluster/verify/>官方文档</a>测试连通性。同样，如果手动分别在不同集群上直接操作，不需要 <code>--context="${CTX_CLUSTER1}"</code>。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><blockquote><p><code>istioctl x create-remote-secret</code> 创建的 remote secret 在哪里被使用？<br>secret 并非通过 volumemount 的形式挂载到 istiod Pod 中使用，而是 istiod 有 secret API 的权限，详见 istiod 的 Role 和 Rolebinding。只有安装了 remote secret，<code>istioctl remote-clusters</code> 才会正确打印出远端集群。</p></blockquote><p>至此，单网格、单网络、多主架构已部署好。</p><h2 id=测试验证>测试验证</h2><p>可参考<a href=https://istio.io/latest/docs/setup/install/multicluster/verify/>官方文档</a>测试连通性。同样，如果手动分别在不同集群上直接操作，不需要 <code>--context="${CTX_CLUSTER1}"</code>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -244,8 +170,7 @@ secret 并非通过 volumemount 的形式挂载到 istiod Pod 中使用，而是
 </span><span class=lnt>12
 </span><span class=lnt>13
 </span><span class=lnt>14
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace sample
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace sample
 </span></span><span class=line><span class=cl>kubectl label namespace sample istio-injection<span class=o>=</span>enabled
 </span></span><span class=line><span class=cl>kubectl apply -f samples/helloworld/helloworld.yaml -l <span class=nv>service</span><span class=o>=</span>helloworld -n sample
 </span></span><span class=line><span class=cl>
@@ -259,19 +184,6 @@ secret 并非通过 volumemount 的形式挂载到 istiod Pod 中使用，而是
 </span></span></span><span class=line><span class=cl><span class=se></span>    <span class=s2>&#34;</span><span class=k>$(</span>kubectl get pod -n sample -l <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    <span class=nv>app</span><span class=o>=</span>sleep -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.items[0].metadata.name}&#39;</span><span class=k>)</span><span class=s2>&#34;</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    -- curl -sS helloworld.sample:5000/hello
-</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes>
-<hr>
-<ol>
-<li id=fn:1 role=doc-endnote>
-<p><a href=https://istio.io/latest/docs/ops/deployment/deployment-models/#endpoint-discovery-with-multiple-control-planes>Endpoint discovery with multiple control planes</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
-<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
-<p class="mt-0 text-sm">
-© huanggze 2021 |
+</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes><hr><ol><li id=fn:1 role=doc-endnote><p><a href=https://istio.io/latest/docs/ops/deployment/deployment-models/#endpoint-discovery-with-multiple-control-planes>Endpoint discovery with multiple control planes</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
-<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p><p class="flex items-center mt-0">
-<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-</a>
-<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
-</a>
-</p></footer></body></html>
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>

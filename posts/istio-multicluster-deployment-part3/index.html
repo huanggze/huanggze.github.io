@@ -1,89 +1,36 @@
-<!doctype html><html lang=en>
-<head>
-<meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<meta property="og:title" content="Istio 多集群部署（三）：多网络多主架构">
-<meta property="og:description" content="多网络、多主架构 多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 Install Multi-Primary on different networks：
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Istio 多集群部署（三）：多网络多主架构"><meta property="og:description" content="多网络、多主架构 多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 Install Multi-Primary on different networks：
 环境准备 本文使用阿里云托管 K8s 服务，在两个不同 VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。
 在两个集群上，下载安装 istioctl（1.12.2 版本）：
-1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .">
-<meta property="og:type" content="article">
-<meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part3/"><meta property="article:section" content="posts">
-<meta property="article:published_time" content="2022-01-29T13:32:02+08:00">
-<meta property="article:modified_time" content="2022-01-29T13:32:02+08:00">
-<meta name=twitter:card content="summary">
-<meta name=twitter:title content="Istio 多集群部署（三）：多网络多主架构">
-<meta name=twitter:description content="多网络、多主架构 多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 Install Multi-Primary on different networks：
+1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 ."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.github.io/posts/istio-multicluster-deployment-part3/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-01-29T13:32:02+08:00"><meta property="article:modified_time" content="2022-01-29T13:32:02+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Istio 多集群部署（三）：多网络多主架构"><meta name=twitter:description content="多网络、多主架构 多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 Install Multi-Primary on different networks：
 环境准备 本文使用阿里云托管 K8s 服务，在两个不同 VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。
 在两个集群上，下载安装 istioctl（1.12.2 版本）：
-1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .">
-<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
-<title>
-Hi Folks - Istio 多集群部署（三）：多网络多主架构
-</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
-<link rel=preconnect href=https://fonts.googleapis.com>
-<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646894794.css>
-<script defer type=text/javascript src=/minima.1646894794.js></script>
-</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
-<body class="sm:mx-5 sm:my-0">
-<header class="flex justify-between items-center mb-6 sm:my-3">
-<div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
-whitespace-nowrap overflow-x-auto overflow-y-hidden">
-<a class=ml-5 href=/>Home</a>
+1 2 3  curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz tar zxvf istioctl-1.12.2-linux-amd64.tar.gz mv istioctl /usr/local/bin/   最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 ."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Istio 多集群部署（三）：多网络多主架构</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1646927559.css><script defer type=text/javascript src=/minima.1646927559.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
-<a class=ml-5 href=/about>About</a>
-</nav></header><details class="toc toc-lines">
-<summary></summary>
-<div class=pb-1>
-<nav id=TableOfContents>
-<ul>
-<li><a href=#多网络多主架构>多网络、多主架构</a></li><li><a href=#环境准备>环境准备</a></li><li><a href=#部署-istio-控制平面>部署 Istio 控制平面</a>
-<ul>
-<li><a href=#step-1-证书配置>Step 1. 证书配置</a></li><li><a href=#step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</a></li><li><a href=#step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</a></li><li><a href=#step-4-暴露网格内的服务>Step 4. 暴露网格内的服务</a></li><li><a href=#step-5-暴露-api-server>Step 5. 暴露 API Server</a></li></ul></li><li><a href=#测试验证>测试验证</a></li></ul></nav></div></details>
-<h1 class="mt-6 mb-6">Istio 多集群部署（三）：多网络多主架构</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
-<div>
-Posted at &mdash; Jan 29, 2022
-</div></div><main>
-<p></p><article class=md>
-<h2 id=多网络多主架构>多网络、多主架构</h2><p>多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 <a href=https://istio.io/latest/docs/setup/install/multicluster/multi-primary_multi-network/>Install Multi-Primary on different networks</a>：</p><p><img src=/images/istio-multicluster-deployment-part3-1.svg alt=istio-multicluster-deployment-part3-1></p><h2 id=环境准备>环境准备</h2><p>本文使用阿里云托管 K8s 服务，在两个<strong>不同</strong> VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。</p><p>在两个集群上，下载安装 istioctl（1.12.2 版本）：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#多网络多主架构>多网络、多主架构</a></li><li><a href=#环境准备>环境准备</a></li><li><a href=#部署-istio-控制平面>部署 Istio 控制平面</a><ul><li><a href=#step-1-证书配置>Step 1. 证书配置</a></li><li><a href=#step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</a></li><li><a href=#step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</a></li><li><a href=#step-4-暴露网格内的服务>Step 4. 暴露网格内的服务</a></li><li><a href=#step-5-暴露-api-server>Step 5. 暴露 API Server</a></li></ul></li><li><a href=#测试验证>测试验证</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">Istio 多集群部署（三）：多网络多主架构</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Jan 29, 2022</div></div><main><p></p><article class=md><h2 id=多网络多主架构>多网络、多主架构</h2><p>多网络指多集群间网络隔离，Pod 与 Pod 不互通。因此 API Server 需要暴露公网，且需要分别配置网关，使 Pod 与 Pod 通过网关通信。架构示意图如下，部署教程参考官方文档 <a href=https://istio.io/latest/docs/setup/install/multicluster/multi-primary_multi-network/>Install Multi-Primary on different networks</a>：</p><p><img src=/images/istio-multicluster-deployment-part3-1.svg alt=istio-multicluster-deployment-part3-1></p><h2 id=环境准备>环境准备</h2><p>本文使用阿里云托管 K8s 服务，在两个<strong>不同</strong> VPC 下，分别部署一个 K8s 集群（命名 cluster1 和 cluster2，本示例部署的是单 worker node 集群），模拟多网络、多主集群。注意，创建集群时，「集群配置 > API Server 访问」一栏中，勾选「使用 EIP 暴露 API Server」。这使的 kube-apiserver 可以公网访问，用于公网连接的 kubeconfig 在集群页「连接信息 > 公网访问」中拿到。</p><p>在两个集群上，下载安装 istioctl（1.12.2 版本）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
 </span></span><span class=line><span class=cl>tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
 </span></span><span class=line><span class=cl>mv istioctl /usr/local/bin/
-</span></span></code></pre></td></tr></table></div></div><p>最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p><h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2><h3 id=step-1-证书配置>Step 1. 证书配置</h3><p>配置根证书、中间证书的方式和第一篇文章一样。只不过 cluster2 的中间证书需要手动拷贝到 cluster2 集群。这是因为两个集群不在一个内网、网络隔离，无法像第一篇一样通过 scp 和内网地址传输 cluster2 的中间证书。</p><p>安装 cacerts 密钥（以 cluster1 为例）：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>最后，为了启用 kubectl 命令，拷贝一份内网访问 kubeconfig（通过阿里云控制台，容器服务 > 集群列表 > 集群信息 > 连接信息，获取）到各自集群 worker node 机器上的 .kube/ 目录下，文件命名为 config。</p><h2 id=部署-istio-控制平面>部署 Istio 控制平面</h2><h3 id=step-1-证书配置>Step 1. 证书配置</h3><p>配置根证书、中间证书的方式和第一篇文章一样。只不过 cluster2 的中间证书需要手动拷贝到 cluster2 集群。这是因为两个集群不在一个内网、网络隔离，无法像第一篇一样通过 scp 和内网地址传输 cluster2 的中间证书。</p><p>安装 cacerts 密钥（以 cluster1 为例）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl create namespace istio-system
 </span></span><span class=line><span class=cl>kubectl create secret generic cacerts -n istio-system <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-cert.pem <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/ca-key.pem <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/root-cert.pem <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>      --from-file<span class=o>=</span>cluster1/cert-chain.pem
-</span></span></code></pre></td></tr></table></div></div><h3 id=step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</h3><p>创建 istio-system 命名空间，并给命名空间打上网络拓扑的标签：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-2-使用中间证书在两个集群上分别安装-istio>Step 2. 使用中间证书在两个集群上分别安装 Istio</h3><p>创建 istio-system 命名空间，并给命名空间打上网络拓扑的标签：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl label namespace istio-system topology.istio.io/network<span class=o>=</span>network1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl label namespace istio-system topology.istio.io/network<span class=o>=</span>network1
 </span></span><span class=line><span class=cl>kubectl label namespace istio-system topology.istio.io/network<span class=o>=</span>network2
-</span></span></code></pre></td></tr></table></div></div><p>安装 Istiod：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><p>安装 Istiod：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -110,8 +57,7 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>25
 </span><span class=lnt>26
 </span><span class=lnt>27
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
 </span></span><span class=line><span class=cl>cat <span class=s>&lt;&lt;EOF &gt; cluster1.yaml
 </span></span></span><span class=line><span class=cl><span class=s>apiVersion: install.istio.io/v1alpha1
 </span></span></span><span class=line><span class=cl><span class=s>kind: IstioOperator
@@ -138,17 +84,14 @@ Posted at &mdash; Jan 29, 2022
 </span></span></span><span class=line><span class=cl><span class=s>      network: network2
 </span></span></span><span class=line><span class=cl><span class=s>EOF</span>
 </span></span><span class=line><span class=cl>istioctl install -f cluster2.yaml
-</span></span></code></pre></td></tr></table></div></div><h3 id=step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</h3><p>在集群上安装网关来连接东西流量，网关的功能是作为<strong>服务代理</strong>。网关需要公网可访问（或云厂商提供的其他更安全的外网访问方式）。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=step-3-安装-east-west-gateway>Step 3. 安装 east-west gateway</h3><p>在集群上安装网关来连接东西流量，网关的功能是作为<strong>服务代理</strong>。网关需要公网可访问（或云厂商提供的其他更安全的外网访问方式）。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
 </span></span><span class=line><span class=cl>samples/multicluster/gen-eastwest-gateway.sh --network network1 <span class=p>|</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    istioctl install -y -f -
 </span></span><span class=line><span class=cl>
@@ -156,9 +99,7 @@ Posted at &mdash; Jan 29, 2022
 </span></span><span class=line><span class=cl>samples/multicluster/gen-eastwest-gateway.sh --network network2 <span class=p>|</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>    istioctl install -y -f -
 </span></span></code></pre></td></tr></table></div></div><p>东西流量（East-west traffic）：客户端和服务器之间的流量，即 server-client 流量；
-南北流量（North-south traffic）：不同服务器之间的流量、数据中心或不同数据中心之间的网络流，即 server-server 流量。</p><p>注意，示例中 gen-eastwest-gateway.sh 脚本创建 gateway 的安装模板是（以 cluster1 为例）一个 IstioOperator YAML 文件。<a href=https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/>IstioOperator API</a> 见官方文档。我们可以看到，这个 YAML 文件安装的 gateway 是一个 Ingress Gateway。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+南北流量（North-south traffic）：不同服务器之间的流量、数据中心或不同数据中心之间的网络流，即 server-server 流量。</p><p>注意，示例中 gen-eastwest-gateway.sh 脚本创建 gateway 的安装模板是（以 cluster1 为例）一个 IstioOperator YAML 文件。<a href=https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/>IstioOperator API</a> 见官方文档。我们可以看到，这个 YAML 文件安装的 gateway 是一个 Ingress Gateway。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -201,8 +142,7 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>41
 </span><span class=lnt>42
 </span><span class=lnt>43
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>install.istio.io/v1alpha1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>IstioOperator</span><span class=w> </span><span class=c># 定义 Istio 组件安装的期望状态</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>eastwest</span><span class=w>
@@ -245,14 +185,9 @@ Posted at &mdash; Jan 29, 2022
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>injectionTemplate</span><span class=p>:</span><span class=w> </span><span class=l>gateway</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>global</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>network</span><span class=p>:</span><span class=w> </span><span class=l>network1</span><span class=w>
-</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-4-暴露网格内的服务>Step 4. 暴露网格内的服务</h3><p>由于服务网格网络隔离，因此两个网络要暴露网络内的服务，才能被其他网络访问。在两个集群上分别执行：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml
-</span></span></code></pre></td></tr></table></div></div><p>expose-services.yaml 的内容如下。前面的 IstioOperator YAMl 是创建 gatway Pod 实例，这里的 Gateway 是配置网关规则。本示例中并未用到 egress gateway。其他集群通过网关访问此集群的工作负载实例。此处 Gateway 没有关联的 VirtualService。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-4-暴露网格内的服务>Step 4. 暴露网格内的服务</h3><p>由于服务网格网络隔离，因此两个网络要暴露网络内的服务，才能被其他网络访问。在两个集群上分别执行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>kubectl apply -n istio-system -f samples/multicluster/expose-services.yaml
+</span></span></code></pre></td></tr></table></div></div><p>expose-services.yaml 的内容如下。前面的 IstioOperator YAMl 是创建 gatway Pod 实例，这里的 Gateway 是配置网关规则。本示例中并未用到 egress gateway。其他集群通过网关访问此集群的工作负载实例。此处 Gateway 没有关联的 VirtualService。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -268,8 +203,7 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt>14
 </span><span class=lnt>15
 </span><span class=lnt>16
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.istio.io/v1alpha3</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Gateway</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cross-network-gateway</span><span class=w>
@@ -285,9 +219,7 @@ Posted at &mdash; Jan 29, 2022
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>mode</span><span class=p>:</span><span class=w> </span><span class=l>AUTO_PASSTHROUGH</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;*.local&#34;</span><span class=w>
-</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-5-暴露-api-server>Step 5. 暴露 API Server</h3><p>需要提供 remote secret 给对方集群，以便对方集群能实现网格内所有服务的服务发现。但由于网络是隔离的，因此需要使用公网访问的 kubeconfig。可以从阿里云「连接信息」页中获得，拷贝到两边集群，命名为 c1.yaml 和 c2.yaml，然后分别执行：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=step-5-暴露-api-server>Step 5. 暴露 API Server</h3><p>需要提供 remote secret 给对方集群，以便对方集群能实现网格内所有服务的服务发现。但由于网络是隔离的，因此需要使用公网访问的 kubeconfig。可以从阿里云「连接信息」页中获得，拷贝到两边集群，命名为 c1.yaml 和 c2.yaml，然后分别执行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -298,8 +230,7 @@ Posted at &mdash; Jan 29, 2022
 </span><span class=lnt> 9
 </span><span class=lnt>10
 </span><span class=lnt>11
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 cluster1 上</span>
 </span></span><span class=line><span class=cl>istioctl x create-remote-secret <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  --kubeconfig<span class=o>=</span>c2.yaml <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  --name<span class=o>=</span>cluster2 <span class=p>|</span> <span class=se>\
@@ -310,15 +241,6 @@ Posted at &mdash; Jan 29, 2022
 </span></span></span><span class=line><span class=cl><span class=se></span>  --kubeconfig<span class=o>=</span>c1.yaml <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  --name<span class=o>=</span>cluster1 <span class=p>|</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  kubectl apply -f -
-</span></span></code></pre></td></tr></table></div></div><h2 id=测试验证>测试验证</h2><p>与前面文章同。</p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
-<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
-<p class="mt-0 text-sm">
-© huanggze 2021 |
+</span></span></code></pre></td></tr></table></div></div><h2 id=测试验证>测试验证</h2><p>与前面文章同。</p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
-<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p><p class="flex items-center mt-0">
-<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-</a>
-<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
-</a>
-</p></footer></body></html>
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>

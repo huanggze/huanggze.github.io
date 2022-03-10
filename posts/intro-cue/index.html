@@ -1,105 +1,52 @@
-<!doctype html><html lang=en>
-<head>
-<meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<meta property="og:title" content="开源数据约束语言 CUE">
-<meta property="og:description" content="CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="开源数据约束语言 CUE"><meta property="og:description" content="CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。
 CUE 的主要功能包含：
  数据验证：客户侧数据校验 代码导入/导出：支持从 Go 代码、Protobuf、YAML、JSON 等源文件转换成 CUE 文件 配置管理：是 JSON 的超集，支持类型检查 辅助工具：cue trim 自动修剪冗余  CUE 示例 下面 cue 文件定义了三个字段，a 是 int 类型，值为 1；b 是对象类型；c 是 string 类型，未赋具体指。
-1 2 3 4 5 6 7  // demo.cue a: int a: 1 b: { c: &#34;abc&#34; } d: string   执行验证命令 cue eval demo.">
-<meta property="og:type" content="article">
-<meta property="og:url" content="https://huanggze.github.io/posts/intro-cue/"><meta property="article:section" content="posts">
-<meta property="article:published_time" content="2022-02-28T09:42:28+08:00">
-<meta property="article:modified_time" content="2022-02-28T09:42:28+08:00">
-<meta name=twitter:card content="summary">
-<meta name=twitter:title content="开源数据约束语言 CUE">
-<meta name=twitter:description content="CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。
+1 2 3 4 5 6 7  // demo.cue a: int a: 1 b: { c: &#34;abc&#34; } d: string   执行验证命令 cue eval demo."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.github.io/posts/intro-cue/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-02-28T09:42:28+08:00"><meta property="article:modified_time" content="2022-02-28T09:42:28+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="开源数据约束语言 CUE"><meta name=twitter:description content="CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。
 CUE 的主要功能包含：
  数据验证：客户侧数据校验 代码导入/导出：支持从 Go 代码、Protobuf、YAML、JSON 等源文件转换成 CUE 文件 配置管理：是 JSON 的超集，支持类型检查 辅助工具：cue trim 自动修剪冗余  CUE 示例 下面 cue 文件定义了三个字段，a 是 int 类型，值为 1；b 是对象类型；c 是 string 类型，未赋具体指。
-1 2 3 4 5 6 7  // demo.cue a: int a: 1 b: { c: &#34;abc&#34; } d: string   执行验证命令 cue eval demo.">
-<meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33">
-<title>
-Hi Folks - 开源数据约束语言 CUE
-</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon>
-<link rel=preconnect href=https://fonts.googleapis.com>
-<link rel=preconnect href=https://fonts.gstatic.com crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet>
-<link rel=stylesheet href=/minima.1646894794.css>
-<script defer type=text/javascript src=/minima.1646894794.js></script>
-</head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script>
-<body class="sm:mx-5 sm:my-0">
-<header class="flex justify-between items-center mb-6 sm:my-3">
-<div class="flex items-center">
-<div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
-whitespace-nowrap overflow-x-auto overflow-y-hidden">
-<a class=ml-5 href=/>Home</a>
+1 2 3 4 5 6 7  // demo.cue a: int a: 1 b: { c: &#34;abc&#34; } d: string   执行验证命令 cue eval demo."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - 开源数据约束语言 CUE</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1646927559.css><script defer type=text/javascript src=/minima.1646927559.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
-<a class=ml-5 href=/about>About</a>
-</nav></header><details class="toc toc-lines">
-<summary></summary>
-<div class=pb-1>
-<nav id=TableOfContents>
-<ul>
-<li><a href=#cue-示例>CUE 示例</a></li><li><a href=#cue-原理格>CUE 原理：格</a></li><li><a href=#cue-语法>CUE 语法</a>
-<ul>
-<li></li><li><a href=#2-多行字符串>2. 多行字符串</a></li><li><a href=#3-开放字段>3. 开放字段</a></li><li><a href=#4-别名>4. 别名</a></li><li><a href=#5-模式限制>5. 模式限制</a></li><li><a href=#6-循环字段>6. 循环字段</a></li><li><a href=#7-隐藏字段>7. 隐藏字段</a></li><li><a href=#8-循环控制>8. 循环控制</a></li><li><a href=#9-条件控制>9. 条件控制</a></li><li><a href=#10-包>10. 包</a></li><li><a href=#11-默认值>11. 默认值</a></li><li><a href=#12-属性>12. 属性</a></li><li><a href=#13-模块>13. 模块</a></li></ul></li></ul></nav></div></details>
-<h1 class="mt-6 mb-6">开源数据约束语言 CUE</h1><div class="mb-3 text-xs flex justify-between sm:flex-col">
-<div>
-Posted at &mdash; Feb 28, 2022
-</div></div><main>
-<p></p><article class=md>
-<p>CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。</p><p><img src=/images/intro-cue-1.png alt=intro-cue-1></p><p>CUE 的主要功能包含：</p><ul>
-<li>数据验证：客户侧数据校验</li><li>代码导入/导出：支持从 Go 代码、Protobuf、YAML、JSON 等源文件转换成 CUE 文件</li><li>配置管理：是 JSON 的超集，支持类型检查</li><li>辅助工具：<code>cue trim</code> 自动修剪冗余</li></ul><h2 id=cue-示例>CUE 示例</h2><p>下面 cue 文件定义了三个字段，a 是 int 类型，值为 1；b 是对象类型；c 是 string 类型，未赋具体指。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#cue-示例>CUE 示例</a></li><li><a href=#cue-原理格>CUE 原理：格</a></li><li><a href=#cue-语法>CUE 语法</a><ul><li></li><li><a href=#2-多行字符串>2. 多行字符串</a></li><li><a href=#3-开放字段>3. 开放字段</a></li><li><a href=#4-别名>4. 别名</a></li><li><a href=#5-模式限制>5. 模式限制</a></li><li><a href=#6-循环字段>6. 循环字段</a></li><li><a href=#7-隐藏字段>7. 隐藏字段</a></li><li><a href=#8-循环控制>8. 循环控制</a></li><li><a href=#9-条件控制>9. 条件控制</a></li><li><a href=#10-包>10. 包</a></li><li><a href=#11-默认值>11. 默认值</a></li><li><a href=#12-属性>12. 属性</a></li><li><a href=#13-模块>13. 模块</a></li></ul></li></ul></nav></div></details><h1 class="mt-6 mb-6">开源数据约束语言 CUE</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Feb 28, 2022</div></div><main><p></p><article class=md><p>CUE（Configure Unify Execute）是一种数据验证语言，有自己的推理引擎，可作为配置语言使用。CUE 语言的特点是把数据类型（type）和值（value）看作同一概念：Types are Values。如下图展示了 CUE 的核心思想，左边是数据，中间是类型，右边（.cue）是数据与类型的混合，约束了任何 largeCapital 数据必须包含字符串类型的 name 字段，大于 5M 的 pop 字段以及值为 true 的 capital 字段。</p><p><img src=/images/intro-cue-1.png alt=intro-cue-1></p><p>CUE 的主要功能包含：</p><ul><li>数据验证：客户侧数据校验</li><li>代码导入/导出：支持从 Go 代码、Protobuf、YAML、JSON 等源文件转换成 CUE 文件</li><li>配置管理：是 JSON 的超集，支持类型检查</li><li>辅助工具：<code>cue trim</code> 自动修剪冗余</li></ul><h2 id=cue-示例>CUE 示例</h2><p>下面 cue 文件定义了三个字段，a 是 int 类型，值为 1；b 是对象类型；c 是 string 类型，未赋具体指。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>// demo.cue
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>// demo.cue
 </span></span><span class=line><span class=cl>a: int
 </span></span><span class=line><span class=cl>a: 1
 </span></span><span class=line><span class=cl>b: {
 </span></span><span class=line><span class=cl>	c: &#34;abc&#34;
 </span></span><span class=line><span class=cl>}
 </span></span><span class=line><span class=cl>d: string
-</span></span></code></pre></td></tr></table></div></div><p>执行验证命令 <code>cue eval demo.cue</code>，可以发现 <code>a: int</code> 和 <code>a: 1</code> 合并（Unification），c 因为没有具体值，保留 <code>d: string</code>：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>执行验证命令 <code>cue eval demo.cue</code>，可以发现 <code>a: int</code> 和 <code>a: 1</code> 合并（Unification），c 因为没有具体值，保留 <code>d: string</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: 1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: 1
 </span></span><span class=line><span class=cl>b: {
 </span></span><span class=line><span class=cl>    c: &#34;abc&#34;
 </span></span><span class=line><span class=cl>}
 </span></span><span class=line><span class=cl>d: string
-</span></span></code></pre></td></tr></table></div></div><p>由于 d 没有具体指，不完整，因此 cue 不能导出 JSON 格式。修改 <code>d: "hi"</code>，执行 <code>cue export demo.cue</code>，JSON 格式正确导出了：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>由于 d 没有具体指，不完整，因此 cue 不能导出 JSON 格式。修改 <code>d: "hi"</code>，执行 <code>cue export demo.cue</code>，JSON 格式正确导出了：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;a&#34;</span><span class=p>:</span> <span class=mi>1</span><span class=p>,</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;b&#34;</span><span class=p>:</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>        <span class=nt>&#34;c&#34;</span><span class=p>:</span> <span class=s2>&#34;abc&#34;</span>
 </span></span><span class=line><span class=cl>    <span class=p>},</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;d&#34;</span><span class=p>:</span> <span class=s2>&#34;hi&#34;</span>
 </span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></td></tr></table></div></div><h2 id=cue-原理格>CUE 原理：格</h2><p>CUE 支持多个文件合并，正如前面示例中对同一字段 a 的合并。合并（Unification）是 CUE 的一大亮点和设计思想，CUE 中的 U 即代表合并的意思。CUE 合并操作的理论支持来自数学中的格（Lattice）。由于合并操作是顺序无关的，所以 CUE 功能非常强大。下图是合并的逻辑示意图以及对应 cue 文件：</p><p class=mermaid>
-graph TD
+</span></span></code></pre></td></tr></table></div></div><h2 id=cue-原理格>CUE 原理：格</h2><p>CUE 支持多个文件合并，正如前面示例中对同一字段 a 的合并。合并（Unification）是 CUE 的一大亮点和设计思想，CUE 中的 U 即代表合并的意思。CUE 合并操作的理论支持来自数学中的格（Lattice）。由于合并操作是顺序无关的，所以 CUE 功能非常强大。下图是合并的逻辑示意图以及对应 cue 文件：</p><p class=mermaid>graph TD
 A("_ (top)") --> N(number)
 N --> I("int")
 N --> GEH(">=0.5")
@@ -116,26 +63,19 @@ Z --> E
 One --> E
 IFI --> E
 CCF --> E
-E("_|_ (bottom)")
-</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+E("_|_ (bottom)")</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: _
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: _
 </span></span><span class=line><span class=cl>a: number
 </span></span><span class=line><span class=cl>a: float
 </span></span><span class=line><span class=cl>a: &gt;= 0.5 &amp; &lt; 10
 </span></span><span class=line><span class=cl>a: 1.1
 </span></span><span class=line><span class=cl>a: 20.0 // error
-</span></span></code></pre></td></tr></table></div></div><p>以上 cue 文件合并操作会报错，这是因为在 <code>a: 1.1</code> 和 <code>a: 20.0</code> 这里合并冲突，两个都是原子值（atom）。CUE 中，<code>_</code> 表示任意值，是合并逻辑中的上确界（top），<code>_|_</code> 表示错误，是下确界（bottom）。CUE 使用格理论能很好地处理无序合并逻辑。合并操作也可以使用 & 操作符（a & b）显示地表示，底层逻辑是<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>：</p><ol>
-<li>a 与自身合并总等于自身 a；</li><li>a 与 b 合并，如果 a ⊑ b，则合并结果总为 a；</li><li>a 与 bottom（_|_）合并等于 bottom。</li></ol><h2 id=cue-语法>CUE 语法</h2><h4 id=1-定义模板>1. 定义模板</h4><p># 打头的字段是定义模板（definition），用于定义数据格式。# 字段不是被打印，仅被引用。如果引用合并了定义不包含的字段，则合并操作会报错。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><p>以上 cue 文件合并操作会报错，这是因为在 <code>a: 1.1</code> 和 <code>a: 20.0</code> 这里合并冲突，两个都是原子值（atom）。CUE 中，<code>_</code> 表示任意值，是合并逻辑中的上确界（top），<code>_|_</code> 表示错误，是下确界（bottom）。CUE 使用格理论能很好地处理无序合并逻辑。合并操作也可以使用 & 操作符（a & b）显示地表示，底层逻辑是<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>：</p><ol><li>a 与自身合并总等于自身 a；</li><li>a 与 b 合并，如果 a ⊑ b，则合并结果总为 a；</li><li>a 与 bottom（_|_）合并等于 bottom。</li></ol><h2 id=cue-语法>CUE 语法</h2><h4 id=1-定义模板>1. 定义模板</h4><p># 打头的字段是定义模板（definition），用于定义数据格式。# 字段不是被打印，仅被引用。如果引用合并了定义不包含的字段，则合并操作会报错。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
@@ -144,8 +84,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>7
 </span><span class=lnt>8
 </span><span class=lnt>9
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>#MyStruct: {
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>#MyStruct: {
 </span></span><span class=line><span class=cl>    sub: field:    string
 </span></span><span class=line><span class=cl>    sub: enabled?: bool
 </span></span><span class=line><span class=cl>}
@@ -154,20 +93,15 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>    sub: feild:   2     // error, feild not defined in #MyStruct
 </span></span><span class=line><span class=cl>    sub: enabled: true  // okay
 </span></span><span class=line><span class=cl>}
-</span></span></code></pre></td></tr></table></div></div><h3 id=2-多行字符串>2. 多行字符串</h3><p>使用 """ 来引用多行字符串。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=2-多行字符串>2. 多行字符串</h3><p>使用 """ 来引用多行字符串。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;&#34;&#34;
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;&#34;&#34;
 </span></span><span class=line><span class=cl>    hello:
 </span></span><span class=line><span class=cl>    world
 </span></span><span class=line><span class=cl>&#34;&#34;&#34;
-</span></span></code></pre></td></tr></table></div></div><h3 id=3-开放字段>3. 开放字段</h3><p>使用 &mldr; 表示允许追加额外字段或数组元素。? 表示可选字段，但如果是开放数组 arr: [&mldr;]，不必加?。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><h3 id=3-开放字段>3. 开放字段</h3><p>使用 &mldr; 表示允许追加额外字段或数组元素。? 表示可选字段，但如果是开放数组 arr: [&mldr;]，不必加?。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -182,8 +116,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>13
 </span><span class=lnt>14
 </span><span class=lnt>15
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>#MyStruct: {
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>#MyStruct: {
 </span></span><span class=line><span class=cl>    sub: {
 </span></span><span class=line><span class=cl>    	field:    string
 </span></span><span class=line><span class=cl>    	enabled?: bool
@@ -198,10 +131,7 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>	  	enabled: true
 </span></span><span class=line><span class=cl>	  }
 </span></span><span class=line><span class=cl>}
-</span></span></code></pre></td></tr></table></div></div><h3 id=4-别名>4. 别名</h3><p>别名的三种写法，X 都可以作为别名使用：</p><ol>
-<li><code>let X = expr</code>，expr 值作为 X 的值；</li><li>在标签中，<code>X=label: expr</code>，expr 值作为 X 的值</li><li>在模式限制中，<code>[X=expr]: value</code>，把模式匹配（expr）到的值作为 X 的值；</li></ol><h3 id=5-模式限制>5. 模式限制</h3><p>模式限制（pattern constraint）使用 <code>[pattern]: value</code> 格式来字段名匹配 <code>pattern</code> 的字段的值需要被 <code>value</code> 约束。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><h3 id=4-别名>4. 别名</h3><p>别名的三种写法，X 都可以作为别名使用：</p><ol><li><code>let X = expr</code>，expr 值作为 X 的值；</li><li>在标签中，<code>X=label: expr</code>，expr 值作为 X 的值</li><li>在模式限制中，<code>[X=expr]: value</code>，把模式匹配（expr）到的值作为 X 的值；</li></ol><h3 id=5-模式限制>5. 模式限制</h3><p>模式限制（pattern constraint）使用 <code>[pattern]: value</code> 格式来字段名匹配 <code>pattern</code> 的字段的值需要被 <code>value</code> 约束。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -214,8 +144,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>11
 </span><span class=lnt>12
 </span><span class=lnt>13
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>// Name 这里用了别名
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>// Name 这里用了别名
 </span></span><span class=line><span class=cl>job: <span class=o>[</span><span class=nv>Name</span><span class=o>=</span>_<span class=o>]</span>: <span class=o>{</span>
 </span></span><span class=line><span class=cl>    name:     Name
 </span></span><span class=line><span class=cl>    replicas: uint <span class=p>|</span> *1
@@ -228,9 +157,7 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>    command:  <span class=s2>&#34;nginx&#34;</span>
 </span></span><span class=line><span class=cl>    replicas: <span class=m>2</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></td></tr></table></div></div><p><code>cue export</code> 输出结果是：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><p><code>cue export</code> 输出结果是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -242,8 +169,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;list&#34;</span><span class=p>:</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>        <span class=nt>&#34;name&#34;</span><span class=p>:</span> <span class=s2>&#34;list&#34;</span><span class=p>,</span>
 </span></span><span class=line><span class=cl>        <span class=nt>&#34;replicas&#34;</span><span class=p>:</span> <span class=mi>1</span><span class=p>,</span>
@@ -255,9 +181,7 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>        <span class=nt>&#34;replicas&#34;</span><span class=p>:</span> <span class=mi>2</span>
 </span></span><span class=line><span class=cl>    <span class=p>}</span>
 </span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></td></tr></table></div></div><p>再看一个例子：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><p>再看一个例子：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -269,8 +193,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: {
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: {
 </span></span><span class=line><span class=cl>    foo:    string    // foo is a string
 </span></span><span class=line><span class=cl>    [=~&#34;^i&#34;]: int     // all other fields starting with i are integers
 </span></span><span class=line><span class=cl>    [=~&#34;^b&#34;]: bool    // all other fields starting with b are booleans
@@ -282,33 +205,25 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>    bar:   true
 </span></span><span class=line><span class=cl>    other: &#34;a string&#34;
 </span></span><span class=line><span class=cl>}
-</span></span></code></pre></td></tr></table></div></div><h3 id=6-循环字段>6. 循环字段</h3><p>引用循环可以被处理，结构循环会报错。</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=6-循环字段>6. 循环字段</h3><p>引用循环可以被处理，结构循环会报错。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>// 引用循环
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>// 引用循环
 </span></span><span class=line><span class=cl>a: b &amp; { x: 1 }   // a: { x: 1, y: 2, z: 3 }
 </span></span><span class=line><span class=cl>b: c &amp; { y: 2 }   // b: { x: 1, y: 2, z: 3 }
 </span></span><span class=line><span class=cl>c: a &amp; { z: 3 }   // c: { x: 1, y: 2, z: 3 }
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>// 结构循环
 </span></span><span class=line><span class=cl>a: b: a  // error
-</span></span></code></pre></td></tr></table></div></div><h3 id=7-隐藏字段>7. 隐藏字段</h3><p>_ 打头的字段是隐藏字段，不会被打印。</p><h3 id=8-循环控制>8. 循环控制</h3><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=7-隐藏字段>7. 隐藏字段</h3><p>_ 打头的字段是隐藏字段，不会被打印。</p><h3 id=8-循环控制>8. 循环控制</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: [1, 2, 3, 4]
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>a: [1, 2, 3, 4]
 </span></span><span class=line><span class=cl>b: [ for x in a if x &gt; 1 { x+1 } ]  // [3, 4, 5]
-</span></span></code></pre></td></tr></table></div></div><h3 id=9-条件控制>9. 条件控制</h3><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=9-条件控制>9. 条件控制</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
@@ -316,8 +231,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>6
 </span><span class=lnt>7
 </span><span class=lnt>8
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>price: number
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>price: number
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>// Require a justification if price is too high
 </span></span><span class=line><span class=cl>if price &gt; 100 {
@@ -325,26 +239,21 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>}
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>price: 200
-</span></span></code></pre></td></tr></table></div></div><h3 id=10-包>10. 包</h3><p>同一 <code>package &lt;name></code> 打头的 cue 文件在同一包下。</p><h3 id=11-默认值>11. 默认值</h3><p>* 标记的值是默认值</p><h3 id=12-属性>12. 属性</h3><p>属性写法如示 <code>@go(Field)</code>，用于表示字段属性<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p><h3 id=13-模块>13. 模块</h3><p>CUE 也支持 module 和 import。比如导入内置包后<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>，可以使用内置包的函数：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h3 id=10-包>10. 包</h3><p>同一 <code>package &lt;name></code> 打头的 cue 文件在同一包下。</p><h3 id=11-默认值>11. 默认值</h3><p>* 标记的值是默认值</p><h3 id=12-属性>12. 属性</h3><p>属性写法如示 <code>@go(Field)</code>，用于表示字段属性<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p><h3 id=13-模块>13. 模块</h3><p>CUE 也支持 module 和 import。比如导入内置包后<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>，可以使用内置包的函数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
 </span><span class=lnt>5
 </span><span class=lnt>6
 </span><span class=lnt>7
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>import (
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>import (
 </span></span><span class=line><span class=cl>	&#34;encoding/json&#34;
 </span></span><span class=line><span class=cl>	&#34;math&#34;
 </span></span><span class=line><span class=cl>)
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>// data: { a: 2.6457513110645907 }
 </span></span><span class=line><span class=cl>data: json.Marshal({ a: math.Sqrt(7) })
-</span></span></code></pre></td></tr></table></div></div><p>甚至可以自己创建包，并引用。如 KubeVela 项目自己创建了 kube api 包：</p><div class=highlight><div class=chroma>
-<table class=lntable><tr><td class=lntd>
-<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span></span></code></pre></td></tr></table></div></div><p>甚至可以自己创建包，并引用。如 KubeVela 项目自己创建了 kube api 包：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -356,8 +265,7 @@ E("_|_ (bottom)")
 </span><span class=lnt>10
 </span><span class=lnt>11
 </span><span class=lnt>12
-</span></code></pre></td><td class=lntd>
-<pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>import (
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>import (
 </span></span><span class=line><span class=cl>   apps &#34;kube/apps/v1&#34;
 </span></span><span class=line><span class=cl>)
 </span></span><span class=line><span class=cl>
@@ -369,23 +277,7 @@ E("_|_ (bottom)")
 </span></span><span class=line><span class=cl>output: {
 </span></span><span class=line><span class=cl>    metadata: name: parameter.name
 </span></span><span class=line><span class=cl>}
-</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes>
-<hr>
-<ol>
-<li id=fn:1 role=doc-endnote>
-<p><a href=https://cuelang.org/docs/references/spec/#unification>CUE Unification</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote>
-<p><a href=https://cuetorials.com/zh/deep-dives/attributes/>CUE Attributes</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote>
-<p><a href=https://cuetorials.com/overview/standard-library/>Cuetorials</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script src=https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js></script>
-<script>mermaid.initialize({startOnLoad:!0})</script>
-<script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script>
-<footer class="mt-8 flex sm:flex-col-reverse justify-between items-center">
-<p class="mt-0 text-sm">
-© huanggze 2021 |
+</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes><hr><ol><li id=fn:1 role=doc-endnote><p><a href=https://cuelang.org/docs/references/spec/#unification>CUE Unification</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote><p><a href=https://cuetorials.com/zh/deep-dives/attributes/>CUE Attributes</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote><p><a href=https://cuetorials.com/overview/standard-library/>Cuetorials</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script src=https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js></script>
+<script>mermaid.initialize({startOnLoad:!0})</script><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
-<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a>
-</p><p class="flex items-center mt-0">
-<a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-</a>
-<a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg>
-</a>
-</p></footer></body></html>
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>

@@ -1,0 +1,318 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Go pprof 性能分析"><meta property="og:description" content="PProf Golang 提供了程序性能分析工具 pprof。性能分析（profiling）可以收集运行期间的程序性能情况，弥补了其他静态测试方法的不足。pprof 支持三种方式采样和生成性能报告（profile）：
+ 通过 runtime/pprof 包将采集结果保存到文件； 通过 net/http/pprof 打开 /debug/pprof HTTP 接口暴露数据； go test -cpuprofile=cpu.profile 命令采集测试用例运行的性能数据。  1 2 3 4 5 6 7 8 9 10 11 12  // 分析报告导出为文件 func main() { f, _ := os.Create(&#34;cpu.profile&#34;) defer f.Close() pprof.StartCPUProfile(f) defer pprof.StopCPUProfile() for i := 0; i < 3; i++ { go sum() } }   1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16  func sum() { d := 0 for i := 0; i < 10_000_000_000; i++ { d += i } } func main() { for i := 0; i < 3; i++ { go sum() } // 使用 go tool pprof -web 127."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.github.io/posts/intro-pprof/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-02-28T16:26:32+08:00"><meta property="article:modified_time" content="2022-02-28T16:26:32+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Go pprof 性能分析"><meta name=twitter:description content="PProf Golang 提供了程序性能分析工具 pprof。性能分析（profiling）可以收集运行期间的程序性能情况，弥补了其他静态测试方法的不足。pprof 支持三种方式采样和生成性能报告（profile）：
+ 通过 runtime/pprof 包将采集结果保存到文件； 通过 net/http/pprof 打开 /debug/pprof HTTP 接口暴露数据； go test -cpuprofile=cpu.profile 命令采集测试用例运行的性能数据。  1 2 3 4 5 6 7 8 9 10 11 12  // 分析报告导出为文件 func main() { f, _ := os.Create(&#34;cpu.profile&#34;) defer f.Close() pprof.StartCPUProfile(f) defer pprof.StopCPUProfile() for i := 0; i < 3; i++ { go sum() } }   1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16  func sum() { d := 0 for i := 0; i < 10_000_000_000; i++ { d += i } } func main() { for i := 0; i < 3; i++ { go sum() } // 使用 go tool pprof -web 127."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Go pprof 性能分析</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1646927559.css><script defer type=text/javascript src=/minima.1646927559.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#pprof>PProf</a></li><li><a href=#profile-类型>Profile 类型</a><ul><li><a href=#cpu>CPU</a></li><li><a href=#heap>Heap</a></li><li><a href=#block>Block</a></li><li><a href=#mutex>Mutex</a></li><li><a href=#goroutine>Goroutine</a></li></ul></li><li><a href=#可视化>可视化</a><ul><li><a href=#调用图>调用图</a></li><li><a href=#火焰图>火焰图</a></li></ul></li><li><a href=#profile-格式>Profile 格式</a></li><li><a href=#profile-分析工具>Profile 分析工具</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">Go pprof 性能分析</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Feb 28, 2022</div></div><main><p></p><article class=md><h2 id=pprof>PProf</h2><p>Golang 提供了程序性能分析工具 pprof。性能分析（profiling）可以收集运行期间的程序性能情况，弥补了其他静态测试方法的不足。pprof 支持三种方式采样和生成性能报告（profile）：</p><ol><li>通过 runtime/pprof 包将采集结果保存到文件；</li><li>通过 net/http/pprof 打开 /debug/pprof HTTP 接口暴露数据；</li><li><code>go test -cpuprofile=cpu.profile</code> 命令采集测试用例运行的性能数据。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// 分析报告导出为文件
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Create</span><span class=p>(</span><span class=s>&#34;cpu.profile&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>	<span class=nx>pprof</span><span class=p>.</span><span class=nf>StartCPUProfile</span><span class=p>(</span><span class=nx>f</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>pprof</span><span class=p>.</span><span class=nf>StopCPUProfile</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>3</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>go</span> <span class=nf>sum</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>sum</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>d</span> <span class=o>:=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>10_000_000_000</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>d</span> <span class=o>+=</span> <span class=nx>i</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>3</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>go</span> <span class=nf>sum</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// 使用 go tool pprof -web 127.0.0.1:8080 http://127.0.0.1:9090/debug/pprof/profile\?seconds\=2
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 可查看 2 秒内，CPU 性能分析报告
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>http</span><span class=p>.</span><span class=nf>ListenAndServe</span><span class=p>(</span><span class=s>&#34;:9090&#34;</span><span class=p>,</span> <span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=profile-类型>Profile 类型</h2><p>Profile 分析统计记录的是一组调用栈以及相关的事件，比如 CPU 使用时间、内存分配、阻塞时间等。Profile 除了 CPU 比较特殊以为，还有以下几种：</p><ul><li>goroutine：当前所有 goroutine 以及调用栈；</li><li>heap：堆内存以及存活对象内存分配统计</li><li>block：记录阻塞事件</li><li>mutex：记录锁竞争</li></ul><h3 id=cpu>CPU</h3><p>CPU 是最基础的性能分析，开启采样需要在代码中调用 pprof.StartCPUProfile 和 pprof.StopCPUProfile，或调用 /debug/pprof?seconds=&lt;duration> HTTP 接口。pprof 默认采样间隔是 100ms。另外，仅 CPU profile 支持 label 给不同 goroutine 打标签帮助细分采样来源<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><h3 id=heap>Heap</h3><p>pprof 主要关注堆内存的情况。pprof 采样会记录上一次 GC 到采样的堆内存分配状况。pprof 默认每分配 512kb 的内存触发一次采样<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。heap profile 又分为四种：inuse_space（默认，当前用量 bytes），inuse_objects（当前存活对象数），alloc_space 和 alloc_objects，记录当前内存分配以及过去所有内存分配汇总情况，这样我们不仅可以知道一个程序运行时当前分配的内存情况，以及哪段代码过往内存分配很大。如果要保存 alloc_* 信息，则将代码中的 pprof.WriteHeapProfile 替换为 pprof.Lookup(&ldquo;allocs&rdquo;).WriteTo(file, 0)。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Create</span><span class=p>(</span><span class=s>&#34;mem.profile&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>runtime</span><span class=p>.</span><span class=nf>GC</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>pprof</span><span class=p>.</span><span class=nf>WriteHeapProfile</span><span class=p>(</span><span class=nx>f</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>s</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>([]</span><span class=kt>byte</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span><span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>1024</span> <span class=o>*</span> <span class=mi>1024</span> <span class=o>*</span> <span class=mi>10</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>s</span><span class=p>,</span> <span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// s = nil
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// runtime.GC()
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 如果再调用一次 GC，则采样结果会为空
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>以下是内存分配采样底层实现简化代码，可以看到 go 是如何采样埋点的<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>malloc</span><span class=p>(</span><span class=nx>size</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>  <span class=nx>object</span> <span class=p>=</span> <span class=o>...</span> <span class=c1>// allocation magic
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=nf>poisson_sample</span><span class=p>(</span><span class=nx>size</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=nx>s</span> <span class=p>=</span> <span class=nf>stacktrace</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=nx>mem_profile</span><span class=p>[</span><span class=nx>s</span><span class=p>].</span><span class=nx>allocs</span><span class=o>++</span>
+</span></span><span class=line><span class=cl>    <span class=nx>mem_profile</span><span class=p>[</span><span class=nx>s</span><span class=p>].</span><span class=nx>alloc_bytes</span> <span class=o>+=</span> <span class=nx>size</span>
+</span></span><span class=line><span class=cl>    <span class=nf>track_profiled</span><span class=p>(</span><span class=nx>object</span><span class=p>,</span> <span class=nx>s</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nx>object</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=block>Block</h3><p>Block profile 记录阻塞事件持续时间以及源头（stack trace 信息）。pprof 记录的阻塞事件包括：select 语句、chan 接收/发送、获取锁，但不包括 time.Sleep、GC 停顿、syscall（网络、文件 I/O）<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>。采用频率可以通过 runtime.SetBlockProfileRate 设置，设置为 1 上是开启 block 采样。BlockProfileRate 的值（单位 ns）影响采样概率，比如设置 rate 纳秒，而实际阻塞 duration 纳秒，那么这次阻塞有 duration/rate 的概率被选中记录下来，否则丢弃。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 设置 rate = 2s，一半的概率记录阻塞持续 1s 的事件，
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 一半概率丢弃
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>runtime</span><span class=p>.</span><span class=nf>SetBlockProfileRate</span><span class=p>(</span><span class=mi>1000</span> <span class=o>*</span> <span class=mi>1000</span> <span class=o>*</span> <span class=mi>1000</span> <span class=o>*</span> <span class=mi>2</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// 阻塞 goroutine，阻塞 1s
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>go</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>select</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>case</span> <span class=o>&lt;-</span><span class=nx>time</span><span class=p>.</span><span class=nf>After</span><span class=p>(</span><span class=mi>1</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>http</span><span class=p>.</span><span class=nf>ListenAndServe</span><span class=p>(</span><span class=s>&#34;:9090&#34;</span><span class=p>,</span> <span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>以下是阻塞事件采样底层实现简化代码，有助于我们理解 BlockProfileRate 的含义：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>func chansend<span class=o>(</span>channel, msg<span class=o>)</span>:
+</span></span><span class=line><span class=cl>  <span class=k>if</span> ready<span class=o>(</span>channel<span class=o>)</span>:
+</span></span><span class=line><span class=cl>    send<span class=o>(</span>channel, msg<span class=o>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nv>start</span> <span class=o>=</span> now<span class=o>()</span>
+</span></span><span class=line><span class=cl>  wait_until_ready<span class=o>(</span>channel<span class=o>)</span> // Off-CPU Wait
+</span></span><span class=line><span class=cl>  <span class=nv>duration</span> <span class=o>=</span> now<span class=o>()</span> - start
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  // 埋点采样
+</span></span><span class=line><span class=cl>  <span class=k>if</span> random_sample<span class=o>(</span>duration, rate<span class=o>)</span>:
+</span></span><span class=line><span class=cl>    <span class=nv>s</span> <span class=o>=</span> stacktrace<span class=o>()</span>
+</span></span><span class=line><span class=cl>    // note: actual implementation is a bit trickier to correct <span class=k>for</span> bias
+</span></span><span class=line><span class=cl>    block_profile<span class=o>[</span>s<span class=o>]</span>.contentions +<span class=o>=</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl>    block_profile<span class=o>[</span>s<span class=o>]</span>.delay +<span class=o>=</span> duration
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  send<span class=o>(</span>channel, msg<span class=o>)</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>func random_sample<span class=o>(</span>duration, rate<span class=o>)</span>:
+</span></span><span class=line><span class=cl>  <span class=k>if</span> rate &lt;<span class=o>=</span> <span class=m>0</span> <span class=o>||</span> <span class=o>(</span>duration &lt; rate <span class=o>&amp;&amp;</span> duration/rate &gt; rand<span class=o>(</span>0, 1<span class=o>))</span>:
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nb>true</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=mutex>Mutex</h3><p>Mutex profile 记录锁竞争的情况，和 Block profile 还不一样。运行下面代码，会发现 Block 记录的是 6 秒，Mutex 记录的是 4 秒。这是因为，Block 记录的是 Lock 锁等待阻塞的时间，第一个 goroutine 无须等待，第二个 goroutine 等待前一个 goroutine 释放，耗时 2 秒，第三个 goroutine 等待前两个锁占用释放，耗时 4 秒，因此 0+2+4=6；而 Mutex 记录的是每个锁请求者，从 Lock 到 Unlock 的时间，而最后一个 goroutine 因为不存在锁竞争，无须纳入统计，因此 2+2=4。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// 分别查看 blcok 和 mutex profile
+</span></span></span><span class=line><span class=cl><span class=c1>// go tool pprof -http 127.0.0.1:8080 http://127.0.0.1:9090/debug/pprof/block
+</span></span></span><span class=line><span class=cl><span class=c1>// go tool pprof -http 127.0.0.1:8081 http://127.0.0.1:9090/debug/pprof/mutex
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>runtime</span><span class=p>.</span><span class=nf>SetBlockProfileRate</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>runtime</span><span class=p>.</span><span class=nf>SetMutexProfileFraction</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=nx>m</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>sync</span><span class=p>.</span><span class=nx>Mutex</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>3</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>go</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>m</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=nx>time</span><span class=p>.</span><span class=nf>Sleep</span><span class=p>(</span><span class=mi>2</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=nx>m</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=p>}()</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>http</span><span class=p>.</span><span class=nf>ListenAndServe</span><span class=p>(</span><span class=s>&#34;:9090&#34;</span><span class=p>,</span> <span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>Block 结果：</p><p><img src=/images/intro-pprof-1.png alt=intro-pprof-1></p><p>Mutex 结果：</p><p><img src=/images/intro-pprof-2.png alt=intro-pprof-2></p><p>以下是锁竞争采样底层实现简化代码，有助于我们理解 Block 与 Mutex 的区别：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>func semacquire<span class=o>(</span>lock<span class=o>)</span>:
+</span></span><span class=line><span class=cl>  <span class=k>if</span> lock.take<span class=o>()</span>:
+</span></span><span class=line><span class=cl>    <span class=k>return</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nv>start</span> <span class=o>=</span> now<span class=o>()</span>
+</span></span><span class=line><span class=cl>  waiters<span class=o>[</span>lock<span class=o>]</span>.add<span class=o>(</span>this_goroutine<span class=o>()</span>, start<span class=o>)</span>
+</span></span><span class=line><span class=cl>  wait_for_wake_up<span class=o>()</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>func semrelease<span class=o>(</span>lock<span class=o>)</span>:
+</span></span><span class=line><span class=cl>  next_goroutine, <span class=nv>start</span> <span class=o>=</span> waiters<span class=o>[</span>lock<span class=o>]</span>.get<span class=o>()</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> !next_goroutine:
+</span></span><span class=line><span class=cl>    // If there weren<span class=err>&#39;</span>t any waiting goroutines, there is no contention to record
+</span></span><span class=line><span class=cl>    <span class=k>return</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nv>duration</span> <span class=o>=</span> now<span class=o>()</span> - start
+</span></span><span class=line><span class=cl>  <span class=k>if</span> rand<span class=o>(</span>0,1<span class=o>)</span> &lt; <span class=m>1</span> / rate:
+</span></span><span class=line><span class=cl>    <span class=nv>s</span> <span class=o>=</span> stacktrace<span class=o>()</span>
+</span></span><span class=line><span class=cl>    mutex_profile<span class=o>[</span>s<span class=o>]</span>.contentions +<span class=o>=</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl>    mutex_profile<span class=o>[</span>s<span class=o>]</span>.delay +<span class=o>=</span> duration
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  wake_up<span class=o>(</span>next_goroutine<span class=o>)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=goroutine>Goroutine</h3><p>统计当前 goroutine 情况。</p><h2 id=可视化>可视化</h2><p>Profile 可视化有两种：调用图和火焰图。</p><h3 id=调用图>调用图</h3><p><sup id=fnref:5><a href=#fn:5 class=footnote-ref role=doc-noteref>5</a></sup></p><h3 id=火焰图>火焰图</h3><p>火焰图
+<a href="https://queue.acm.org/detail.cfm?id=2927301">https://queue.acm.org/detail.cfm?id=2927301</a></p><h2 id=profile-格式>Profile 格式</h2><p>?debug=0 pb数据类型
+?debug=1 legacy text 类型
+// The debug parameter enables additional output.
+// Passing debug=0 writes the gzip-compressed protocol buffer described
+// in <a href=https://github.com/google/pprof/tree/master/proto#overview>https://github.com/google/pprof/tree/master/proto#overview</a>.
+// Passing debug=1 writes the legacy text format with comments
+// translating addresses to function names and line numbers, so that a
+// programmer can read the profile without tools.</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>protoc --decode perftools.profiles.Profile  --proto_path /go/pkg/mod/github.com/google/pprof/proto  /go/pkg/mod/github.com/google/pprof/proto/profile.proto &lt; block.profile
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>注意，不可以省略 &ndash;proto_path，否则会报错：<br>/go/pkg/mod/github.com/google/pprof/proto/profile.proto: File does not reside within any path specified using &ndash;proto_path (or -I). You must specify a &ndash;proto_path which encompasses this file. Note that the proto_path must be an exact prefix of the .proto file names &ndash; protoc is too dumb to figure out when two paths (e.g. absolute and relative) are equivalent (it&rsquo;s harder than you think).</p></blockquote><p>每一个 sample 代表一次采样?什么是 sample
+A sample is a measurement. This measure is made at a certain time during the profiling process.
+(sample 记录一个完整调用栈)
+sample vs. location【function】</p><p><a href=https://www.polarsignals.com/blog/posts/2021/08/03/diy-pprof-profiles-using-go/>https://www.polarsignals.com/blog/posts/2021/08/03/diy-pprof-profiles-using-go/</a></p><h2 id=profile-分析工具>Profile 分析工具</h2><p>24种 output
+node()</p><p>flat time:function的自己耗时
+cum time：包括等待调用返回的时间
+sum: 占总时间的百分比</p><p><a href=https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/>https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/</a>
+<a href=https://medium.com/happyfresh-fleet-tracker/danny-profiling-1c60a19d30de>https://medium.com/happyfresh-fleet-tracker/danny-profiling-1c60a19d30de</a></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>pprof list
+</span></span><span class=line><span class=cl>(pprof) list func1
+</span></span><span class=line><span class=cl>Total: 2.67s
+</span></span><span class=line><span class=cl>ROUTINE ======================== main.main.func1 in /Users/xxx/go/src/awesomeProject/main.go
+</span></span><span class=line><span class=cl>2.65s   2.67s (flat, cum)   100% of Total
+</span></span><span class=line><span class=cl>.          .     20:   for i := 0; i &lt; 3; i++ {
+</span></span><span class=line><span class=cl>.          .     21:           idx := i
+</span></span><span class=line><span class=cl>.          .     22:           wg.Add(1)
+</span></span><span class=line><span class=cl>.          .     23:           go pprof.Do(context.Background(), pprof.Labels(&#34;idx&#34;, fmt.Sprintf(&#34;%d&#34;, idx)), func(ctx context.Context) {
+</span></span><span class=line><span class=cl>.          .     24:                   sum := 0
+</span></span><span class=line><span class=cl>2.65s   2.65s    25:                   for d := 0; d &lt; 3_000_000_000; d++ {
+</span></span><span class=line><span class=cl>.          .     26:                           sum += d
+</span></span><span class=line><span class=cl>.          .     27:                   }
+</span></span><span class=line><span class=cl>.       20ms     28:                   wg.Done()
+</span></span><span class=line><span class=cl>.          .     29:           })
+</span></span><span class=line><span class=cl>.          .     30:   }
+</span></span><span class=line><span class=cl>.          .     31:
+</span></span><span class=line><span class=cl>.          .     32:   wg.Wait()
+</span></span><span class=line><span class=cl>.          .     33:}
+</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes><hr><ol><li id=fn:1 role=doc-endnote><p><a href=https://www.jetbrains.com/help/go/using-profiler-labels.html#viewing-labels-in-goland>Using profiler labels</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2 role=doc-endnote><p><a href=https://pkg.go.dev/runtime#pkg-variables>go runtime 包</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3 role=doc-endnote><p><a href=https://github.com/DataDog/go-profiler-notes/tree/main/guide#memory-profiler>DataDog go pprof notes</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4 role=doc-endnote><p><a href=https://github.com/DataDog/go-profiler-notes/blob/main/block.md>Block Profiling in Go</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:5 role=doc-endnote><p><a href=https://www.practical-go-lessons.com/chap-36-program-profiling#display-profile-in-a-web-browser>Practical Go Lessons - Chapter 36: Program Profiling</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
