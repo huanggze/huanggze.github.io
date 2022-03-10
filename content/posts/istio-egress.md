@@ -87,6 +87,29 @@ spec:
 EOF
 ```
 
+> ServiceEntry 的坑：
+> - `spec.addresses` 在 ports.protocol=HTTP 时被忽略[^2]。因此，如果需要通过 IP 访问 HTTP 服务，应把 `ports.protocol` 设置为 TCP；
+> - 对于没有域名只有 IP 的外部服务，可以把外部服务通过 Headless Service + Endpoint 注册到 K8s 的 DNS 组件（否则得用其他 DNS 服务器），就可以使用 DNS 模式了[^3]；
+> - 可解析的域名 + STATIC + spec.endpoints 组合可以把任意可解析的域名请求转发到指定 endpoints[^4]：
+>```yaml
+> # apply 后就可以 kubectl exec sleep-7c7db887d8-9dnd7 -- curl -s www.baidu.com:1234
+> apiVersion: networking.istio.io/v1alpha3
+> kind: ServiceEntry
+> metadata:
+> name: my-server-se
+> spec:
+>   hosts:
+>   - www.baidu.com
+>   ports:
+>   - number: 1234
+>     name: http
+>     protocol: HTTP
+>   location: MESH_EXTERNAL
+>   resolution: STATIC
+>   endpoints:
+>   - address: 192.168.0.78
+>```
+
 此时，虽然可以访问 192.168.0.78:1234，但通过 istio-proxy 容器日志可以看到，是直连访问。
 
 ```bash
@@ -199,3 +222,6 @@ $ kubectl logs -n istio-system -l istio=egressgateway
 ```
 
 [^1]: [Envoy Access Logs](https://istio.io/latest/docs/tasks/observability/logs/access-log/)
+[^2]: [Istio ServiceEntry 中文文档](https://wiki.shileizcc.com/confluence/display/istio/Istio+ServiceEntry)
+[^3]: [Stack Overflow: Istio - Connect to an external ip](https://stackoverflow.com/questions/56094753/istio-connect-to-an-external-ip/56100843#56100843)
+[^4]: [ServiceEntry详解](https://blog.csdn.net/hxpjava1/article/details/117325083)
