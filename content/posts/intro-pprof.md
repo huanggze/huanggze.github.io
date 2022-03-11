@@ -225,7 +225,7 @@ Profile 可视化有两种：调用图和火焰图。
 火焰图
 https://queue.acm.org/detail.cfm?id=2927301
 
-## Profile 格式
+### 文本
 
 ?debug=0  pb数据类型
 ?debug=1  legacy text 类型
@@ -235,6 +235,8 @@ https://queue.acm.org/detail.cfm?id=2927301
 // Passing debug=1 writes the legacy text format with comments
 // translating addresses to function names and line numbers, so that a
 // programmer can read the profile without tools.
+
+## Profile 格式
 
 ```bash
 protoc --decode perftools.profiles.Profile  --proto_path /go/pkg/mod/github.com/google/pprof/proto  /go/pkg/mod/github.com/google/pprof/proto/profile.proto < block.profile
