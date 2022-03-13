@@ -208,7 +208,6 @@ func semrelease(lock):
   wake_up(next_goroutine)
 ```
 
-
 ### Goroutine
 
 统计当前 goroutine 情况。
@@ -218,12 +217,16 @@ func semrelease(lock):
 Profile 可视化有两种：调用图和火焰图。
 
 ### 调用图
-[^5]
+
+调用图（callgraph）[^5][^6]展示栈内的函数调用关系。一个调用图中包含若干节点（node）和边（edge）。红灰颜色区分代表正值和近乎零值，节点字体大小采样值的大小，边的宽度代表调用过程资源的消耗情况。
+
+![intro-pprof-3.png](/images/intro-pprof-3.png)
+
+![intro-pprof-4.png](/images/intro-pprof-4.png)
 
 ### 火焰图
 
-火焰图
-https://queue.acm.org/detail.cfm?id=2927301
+火焰图（flame graph）[^7]
 
 ### 文本
 
@@ -262,7 +265,6 @@ cum time：包括等待调用返回的时间
 sum: 占总时间的百分比
 
 https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
-https://medium.com/happyfresh-fleet-tracker/danny-profiling-1c60a19d30de
 
 
 ```text
@@ -292,3 +294,5 @@ ROUTINE ======================== main.main.func1 in /Users/xxx/go/src/awesomePro
 [^3]: [DataDog go pprof notes](https://github.com/DataDog/go-profiler-notes/tree/main/guide#memory-profiler)
 [^4]: [Block Profiling in Go](https://github.com/DataDog/go-profiler-notes/blob/main/block.md)
 [^5]: [Practical Go Lessons - Chapter 36: Program Profiling](https://www.practical-go-lessons.com/chap-36-program-profiling#display-profile-in-a-web-browser)
+[^6]: [Interpreting the Callgraph](https://github.com/google/pprof/blob/master/doc/README.md)
+[^7]: [The Flame Graph](https://queue.acm.org/detail.cfm?id=2927301)
