@@ -243,7 +243,7 @@ Profile 可视化有两种：调用图和火焰图。
 
 ## Profile 格式
 
-protobuf 文件格式的 profile 可以通过 protoc 命令行解析：
+Profile 使用 protobuf 编码。protobuf 文件格式的 profile 可以通过 protoc 命令行解析：
 
 ```bash
 $ protoc --decode perftools.profiles.Profile  --proto_path /go/pkg/mod/github.com/google/pprof/proto  /go/pkg/mod/github.com/google/pprof/proto/profile.proto < cpu.pb
