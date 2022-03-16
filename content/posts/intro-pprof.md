@@ -218,54 +218,186 @@ Profile 可视化有两种：调用图和火焰图。
 
 ### 调用图
 
-调用图（callgraph）[^5][^6]展示栈内的函数调用关系。一个调用图中包含若干节点（node）和边（edge）。红灰颜色区分代表正值和近乎零值，节点字体大小采样值的大小，边的宽度代表调用过程资源的消耗情况。
+调用图（callgraph）[^5][^6]展示栈内的函数调用关系。一个调用图中包含若干节点（node）和边（edge）：
+- 红灰颜色区分采样值为正值或近乎零值；
+- 节点字体大小采样值的大小；
+- 边的宽度代表调用过程资源的消耗情况。
 
-![intro-pprof-3.png](/images/intro-pprof-3.png)
+![intro-pprof-3](/images/intro-pprof-3.png)
 
-![intro-pprof-4.png](/images/intro-pprof-4.png)
+![intro-pprof-4](/images/intro-pprof-4.png)
 
 ### 火焰图
 
-火焰图（flame graph）[^7]
+火焰图（flame graph）[^7]展示 CPU 正在执行的函数名以及调用栈：
+- 上边缘（top edge）表示在 CPU 上运行的函数以及相应调用栈；
+- 关注顶层的哪个函数占据的宽度最大。出现"平顶"（plateaus）表示该函数可能存在性能问题；
+- y 轴表示调用栈，每一层都是一个函数。调用栈越深，火焰就越高；
+- x 轴表示不同抽样，不代表时间，而是所有的调用栈合并后，按字母顺序排列的。
+
+![intro-pprof-5](/images/intro-pprof-5.png)
 
 ### 文本
 
-?debug=0  pb数据类型
-?debug=1  legacy text 类型
-// The debug parameter enables additional output.
-// Passing debug=0 writes the gzip-compressed protocol buffer described
-// in https://github.com/google/pprof/tree/master/proto#overview.
-// Passing debug=1 writes the legacy text format with comments
-// translating addresses to function names and line numbers, so that a
-// programmer can read the profile without tools.
+/debug/pprof/profile?debug=<d> HTTP 接口，当 debug 为 0，导出 protobuf 文件格式的 profile 数据；当 debug 为 1，输出具有可读性的文本结果。
 
 ## Profile 格式
 
+Profile 使用 protobuf 编码。protobuf 文件格式的 profile 可以通过 protoc 命令行解析：
+
 ```bash
-protoc --decode perftools.profiles.Profile  --proto_path /go/pkg/mod/github.com/google/pprof/proto  /go/pkg/mod/github.com/google/pprof/proto/profile.proto < block.profile
+$ protoc --decode perftools.profiles.Profile  --proto_path /go/pkg/mod/github.com/google/pprof/proto  /go/pkg/mod/github.com/google/pprof/proto/profile.proto < cpu.pb
+
+sample_type {
+  type: 1
+  unit: 2
+}
+sample_type {
+  type: 3
+  unit: 4
+}
+sample {
+  location_id: 1
+  location_id: 2
+  value: 27
+  value: 270000000
+}
+sample {
+  location_id: 3
+  location_id: 4
+  location_id: 2
+  value: 1
+  value: 10000000
+}
+sample {
+  location_id: 5
+  location_id: 2
+  value: 1
+  value: 10000000
+}
+mapping {
+  id: 1
+  has_functions: true
+}
+location {
+  id: 1
+  mapping_id: 1
+  address: 18351209
+  line {
+    function_id: 1
+    line: 24
+  }
+}
+location {
+  id: 2
+  mapping_id: 1
+  address: 17006246
+  line {
+    function_id: 2
+    line: 255
+  }
+}
+location {
+  id: 3
+  mapping_id: 1
+  address: 17205824
+  line {
+    function_id: 3
+    line: 8
+  }
+}
+location {
+  id: 4
+  mapping_id: 1
+  address: 18351208
+  line {
+    function_id: 1
+    line: 24
+  }
+}
+location {
+  id: 5
+  mapping_id: 1
+  address: 18351212
+  line {
+    function_id: 1
+    line: 24
+  }
+}
+function {
+  id: 1
+  name: 5
+  system_name: 5
+  filename: 6
+}
+function {
+  id: 2
+  name: 7
+  system_name: 7
+  filename: 8
+}
+function {
+  id: 3
+  name: 9
+  system_name: 9
+  filename: 10
+}
+string_table: ""
+string_table: "samples"
+string_table: "count"
+string_table: "cpu"
+string_table: "nanoseconds"
+string_table: "main.main"
+string_table: "/Users/huanggze/go/src/awesomeProject/main.go"
+string_table: "runtime.main"
+string_table: "/usr/local/go/src/runtime/proc.go"
+string_table: "runtime.asyncPreempt"
+string_table: "/usr/local/go/src/runtime/preempt_amd64.s"
+time_nanos: 1647258507517428000
+duration_nanos: 500869588
+period_type {
+  type: 3
+  unit: 4
+}
+period: 10000000
 ```
 
 > 注意，不可以省略 --proto_path，否则会报错：\
 > /go/pkg/mod/github.com/google/pprof/proto/profile.proto: File does not reside within any path specified using --proto_path (or -I).  You must specify a --proto_path which encompasses this file.  Note that the proto_path must be an exact prefix of the .proto file names -- protoc is too dumb to figure out when two paths (e.g. absolute and relative) are equivalent (it's harder than you think).
 
-每一个 sample 代表一次采样?什么是 sample
-A sample is a measurement. This measure is made at a certain time during the profiling process.
-(sample 记录一个完整调用栈)
-sample vs. location【function】
-
-https://www.polarsignals.com/blog/posts/2021/08/03/diy-pprof-profiles-using-go/
+每一个 sample 代表一次采样（记录一个完整调用栈)，location 描述的是采样在内存中的地址，mapping 关联内存地址和代码文件信息。你甚至可以用 Go 代码实现 DIY 出一个 profile[^8]。
 
 ## Profile 分析工具
 
-24种 output
-node()
+使用 go tool pprof 自带分析工具，可以以不同形式输出 profile 分析结果，如：top，svg，traces，list。
 
-flat time:function的自己耗时
-cum time：包括等待调用返回的时间
-sum: 占总时间的百分比
+### top
 
-https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
+top 命令把采样值按大小排序。
 
+```bash
+(pprof) top
+Showing nodes accounting for 25.58s, 99.46% of 25.72s total
+Dropped 25 nodes (cum <= 0.13s)
+Showing top 10 nodes out of 23
+      flat  flat%   sum%        cum   cum%
+    16.87s 65.59% 65.59%     16.87s 65.59%  main.getExchangeRate
+     6.15s 23.91% 89.50%      6.15s 23.91%  runtime.memclrNoHeapPointers
+     2.03s  7.89% 97.40%      2.03s  7.89%  runtime.nanotime
+     0.24s  0.93% 98.33%      0.24s  0.93%  main.getRatePerNight
+     0.21s  0.82% 99.14%      0.21s  0.82%  runtime.(*mspan).init (inline)
+     0.07s  0.27% 99.42%     23.62s 91.84%  main.getTurnover
+     0.01s 0.039% 99.46%      6.44s 25.04%  runtime.growslice
+         0     0% 99.46%     23.63s 91.87%  main.main
+         0     0% 99.46%      6.42s 24.96%  runtime.(*mcache).nextFree
+         0     0% 99.46%      6.42s 24.96%  runtime.(*mcache).nextFree.func1
+```
+
+![intro-pprof-6](/images/intro-pprof-6.png)
+
+### list
+
+list 接收一个正则匹配，展示定位源代码。
 
 ```text
 pprof list
@@ -289,6 +421,28 @@ ROUTINE ======================== main.main.func1 in /Users/xxx/go/src/awesomePro
 .          .     33:}
 ```
 
+### traces
+
+traces 打印采样信息。
+
+```bash
+(pprof) traces
+Type: cpu
+Time: Mar 14, 2022 at 8:19pm (CST)
+Duration: 501.52ms, Total samples = 330ms (65.80%)
+-----------+-------------------------------------------------------
+     310ms   main.main
+             runtime.main
+-----------+-------------------------------------------------------
+      20ms   main.main
+             runtime.main
+-----------+-------------------------------------------------------
+```
+
+### -base
+
+可以把同一程序的某一时刻 profile 作为当前 profile 的基准进行差值分析，基准 profile 使用 -base 指定[^9]。
+
 [^1]: [Using profiler labels](https://www.jetbrains.com/help/go/using-profiler-labels.html#viewing-labels-in-goland)
 [^2]: [go runtime 包](https://pkg.go.dev/runtime#pkg-variables)
 [^3]: [DataDog go pprof notes](https://github.com/DataDog/go-profiler-notes/tree/main/guide#memory-profiler)
@@ -296,3 +450,5 @@ ROUTINE ======================== main.main.func1 in /Users/xxx/go/src/awesomePro
 [^5]: [Practical Go Lessons - Chapter 36: Program Profiling](https://www.practical-go-lessons.com/chap-36-program-profiling#display-profile-in-a-web-browser)
 [^6]: [Interpreting the Callgraph](https://github.com/google/pprof/blob/master/doc/README.md)
 [^7]: [The Flame Graph](https://queue.acm.org/detail.cfm?id=2927301)
+[^8]: [DIY pprof profiles using Go](https://www.polarsignals.com/blog/posts/2021/08/03/diy-pprof-profiles-using-go/)
+[^9]: [实战Go内存泄露](https://segmentfault.com/a/1190000019222661)
