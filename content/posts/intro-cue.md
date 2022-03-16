@@ -229,6 +229,16 @@ a: [1, 2, 3, 4]
 b: [ for x in a if x > 1 { x+1 } ]  // [3, 4, 5]
 ```
 
+另外，cue 不支持 for-break，要实现提前退出可以用 list.Contains 转化写法[^2]：
+
+```bash
+import "list"
+
+isHealth: len(_statusList) == 0 || list.Contains(_statusList, true)
+
+_statusList: [false, true]
+```
+
 ### 9. 条件控制
 
 ```text
@@ -252,11 +262,11 @@ price: 200
 
 ### 12. 属性
 
-属性写法如示 `@go(Field)`，用于表示字段属性[^2]。
+属性写法如示 `@go(Field)`，用于表示字段属性[^3]。
 
 ### 13. 模块
 
-CUE 也支持 module 和 import。比如导入内置包后[^3]，可以使用内置包的函数：
+CUE 也支持 module 和 import。比如导入内置包后[^4]，可以使用内置包的函数：
 
 ```text
 import (
@@ -286,5 +296,6 @@ output: {
 ```
 
 [^1]: [CUE Unification](https://cuelang.org/docs/references/spec/#unification)
-[^2]: [CUE Attributes](https://cuetorials.com/zh/deep-dives/attributes/)
-[^3]: [Cuetorials](https://cuetorials.com/overview/standard-library/)
+[^2]: [does cue support for-break?](https://github.com/cue-lang/cue/issues/1580)
+[^3]: [CUE Attributes](https://cuetorials.com/zh/deep-dives/attributes/)
+[^4]: [Cuetorials](https://cuetorials.com/overview/standard-library/)
