@@ -1,0 +1,171 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Go 日志：klog"><meta property="og:description" content="klog 是 K8s 社区维护的 logging 库，支持在程序命令行注册以下 flag1：
+ log_file：输出到日志文件； log_file_max_size：日志文件最大大小（单位：mb），如果超过最大值则会擦除日志文件全部内容，并从头开始写日志。未设置最大值时，无限制； logtostderr：是否输出到标准错误输出，如果想输出到文件，改值应设为 false； skip_log_headers：忽略记录日志元信息； v：日志等级  示例 1：手动/自动输出日志到文件 1 2 3 4 5 6 7 8 9 10 11 12 13 14  func main() { fs := flag.NewFlagSet(&#34;klog&#34;, flag.ExitOnError) // 注册 flag 	klog.InitFlags(fs) fs.Set(&#34;skip_log_headers&#34;, &#34;true&#34;) // 解析 flag 	fs.Parse(os.Args[1:]) klog.Info(&#34;nice to meet you&#34;) klog.ErrorS(errors.New(&#34;oops&#34;), &#34;noooo&#34;) // 手动刷新日志记录到文件 	klog.Flush() // 或者每 5s 自动 flush 	// time.Sleep(6 * time."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.github.io/posts/go-logging-part1/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-04-06T21:23:09+08:00"><meta property="article:modified_time" content="2022-04-06T21:23:09+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Go 日志：klog"><meta name=twitter:description content="klog 是 K8s 社区维护的 logging 库，支持在程序命令行注册以下 flag1：
+ log_file：输出到日志文件； log_file_max_size：日志文件最大大小（单位：mb），如果超过最大值则会擦除日志文件全部内容，并从头开始写日志。未设置最大值时，无限制； logtostderr：是否输出到标准错误输出，如果想输出到文件，改值应设为 false； skip_log_headers：忽略记录日志元信息； v：日志等级  示例 1：手动/自动输出日志到文件 1 2 3 4 5 6 7 8 9 10 11 12 13 14  func main() { fs := flag.NewFlagSet(&#34;klog&#34;, flag.ExitOnError) // 注册 flag 	klog.InitFlags(fs) fs.Set(&#34;skip_log_headers&#34;, &#34;true&#34;) // 解析 flag 	fs.Parse(os.Args[1:]) klog.Info(&#34;nice to meet you&#34;) klog.ErrorS(errors.New(&#34;oops&#34;), &#34;noooo&#34;) // 手动刷新日志记录到文件 	klog.Flush() // 或者每 5s 自动 flush 	// time.Sleep(6 * time."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Go 日志：klog</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1649335212.css><script defer type=text/javascript src=/minima.1649335212.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#示例-1手动自动输出日志到文件>示例 1：手动/自动输出日志到文件</a></li><li><a href=#示例-2goroutine-溢出>示例 2：goroutine 溢出</a></li><li><a href=#示例-3结构化日志>示例 3：结构化日志</a></li><li><a href=#示例-4输出到-buffer>示例 4：输出到 Buffer</a></li><li><a href=#示例-4klogr>示例 4：klogr</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">Go 日志：klog</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Apr 06, 2022</div></div><main><p></p><article class=md><p>klog 是 K8s 社区维护的 logging 库，支持在程序命令行注册以下 flag<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>：</p><ul><li>log_file：输出到日志文件；</li><li>log_file_max_size：日志文件最大大小（单位：mb），如果超过最大值则会擦除日志文件全部内容，并从头开始写日志。未设置最大值时，无限制；</li><li>logtostderr：是否输出到标准错误输出，如果想输出到文件，改值应设为 false；</li><li>skip_log_headers：忽略记录日志元信息；</li><li>v：日志等级</li></ul><h2 id=示例-1手动自动输出日志到文件>示例 1：手动/自动输出日志到文件</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>fs</span> <span class=o>:=</span> <span class=nx>flag</span><span class=p>.</span><span class=nf>NewFlagSet</span><span class=p>(</span><span class=s>&#34;klog&#34;</span><span class=p>,</span> <span class=nx>flag</span><span class=p>.</span><span class=nx>ExitOnError</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 注册 flag
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>InitFlags</span><span class=p>(</span><span class=nx>fs</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>fs</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;skip_log_headers&#34;</span><span class=p>,</span> <span class=s>&#34;true&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 解析 flag
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>fs</span><span class=p>.</span><span class=nf>Parse</span><span class=p>(</span><span class=nx>os</span><span class=p>.</span><span class=nx>Args</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;nice to meet you&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>ErrorS</span><span class=p>(</span><span class=nx>errors</span><span class=p>.</span><span class=nf>New</span><span class=p>(</span><span class=s>&#34;oops&#34;</span><span class=p>),</span> <span class=s>&#34;noooo&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 手动刷新日志记录到文件
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Flush</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 或者每 5s 自动 flush
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// time.Sleep(6 * time.Second)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ go run main.go --log_file<span class=o>=</span>out.log --logtostderr<span class=o>=</span><span class=nb>false</span>
+</span></span><span class=line><span class=cl>$ cat out.log
+</span></span><span class=line><span class=cl>I0406 21:20:32.475227   <span class=m>88398</span> main.go:15<span class=o>]</span> nice to meet you
+</span></span><span class=line><span class=cl>E0406 21:20:32.475666   <span class=m>88398</span> main.go:16<span class=o>]</span> <span class=s2>&#34;noooo&#34;</span> <span class=nv>err</span><span class=o>=</span><span class=s2>&#34;oops&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=示例-2goroutine-溢出>示例 2：goroutine 溢出</h2><p>前面的示例 1 没有停止 Flush 因此会有 groutine leaking 的问题，解决办法是 <code>defer klog.StopFlushDaemon()</code>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>InitFlags</span><span class=p>(</span><span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// By default klog writes to stderr. Setting logtostderr to false makes klog
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// write to a log file.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;logtostderr&#34;</span><span class=p>,</span> <span class=s>&#34;false&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;log_file&#34;</span><span class=p>,</span> <span class=s>&#34;myfile.log&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Parse</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// Info writes the first log message. When the first log file is created,
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// a flushDaemon is started to frequently flush bytes to the file.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;nice to meet you&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// klog won&#39;t ever stop this flushDaemon. To exit without leaking a goroutine,
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// the daemon can be stopped manually.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>StopFlushDaemon</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// After you stopped the flushDaemon, you can still manually flush.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;bye&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Flush</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>TestLeakingFlushDaemon</span><span class=p>(</span><span class=nx>t</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>T</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// goleak detects leaking goroutines.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>defer</span> <span class=nx>goleak</span><span class=p>.</span><span class=nf>VerifyNone</span><span class=p>(</span><span class=nx>t</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// Without calling StopFlushDaemon in main, this test will fail.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nf>main</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=示例-3结构化日志>示例 3：结构化日志</h2><p>使用 InfoS、ErrorS 方法</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// I0406 23:42:44.499187    8424 main.go:18] &#34;Pod status updated&#34; pod=&#34;kubedns&#34; status=&#34;ready&#34;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>klog</span><span class=p>.</span><span class=nf>InfoS</span><span class=p>(</span><span class=s>&#34;Pod status updated&#34;</span><span class=p>,</span> <span class=s>&#34;pod&#34;</span><span class=p>,</span> <span class=s>&#34;kubedns&#34;</span><span class=p>,</span> <span class=s>&#34;status&#34;</span><span class=p>,</span> <span class=s>&#34;ready&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=示例-4输出到-buffer>示例 4：输出到 Buffer</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>InitFlags</span><span class=p>(</span><span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;logtostderr&#34;</span><span class=p>,</span> <span class=s>&#34;false&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;alsologtostderr&#34;</span><span class=p>,</span> <span class=s>&#34;false&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>flag</span><span class=p>.</span><span class=nf>Parse</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>buf</span> <span class=o>:=</span> <span class=nb>new</span><span class=p>(</span><span class=nx>bytes</span><span class=p>.</span><span class=nx>Buffer</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 接收一个 io.Writer 参数
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>klog</span><span class=p>.</span><span class=nf>SetOutput</span><span class=p>(</span><span class=nx>buf</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;nice to meet you&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>klog</span><span class=p>.</span><span class=nf>Flush</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;LOGGED: %s&#34;</span><span class=p>,</span> <span class=nx>buf</span><span class=p>.</span><span class=nf>String</span><span class=p>())</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=示例-4klogr>示例 4：klogr</h2><p>klogr 实现了 <a href=https://github.com/go-logr/logr>go-logr/logr</a> 接口</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>myError</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>str</span> <span class=kt>string</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>e</span> <span class=nx>myError</span><span class=p>)</span> <span class=nf>Error</span><span class=p>()</span> <span class=kt>string</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>e</span><span class=p>.</span><span class=nx>str</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>InitFlags</span><span class=p>(</span><span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>flag</span><span class=p>.</span><span class=nf>Set</span><span class=p>(</span><span class=s>&#34;v&#34;</span><span class=p>,</span> <span class=s>&#34;3&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>flag</span><span class=p>.</span><span class=nf>Parse</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=nx>log</span> <span class=o>:=</span> <span class=nx>klogr</span><span class=p>.</span><span class=nf>New</span><span class=p>().</span><span class=nf>WithName</span><span class=p>(</span><span class=s>&#34;MyName&#34;</span><span class=p>).</span><span class=nf>WithValues</span><span class=p>(</span><span class=s>&#34;user&#34;</span><span class=p>,</span> <span class=s>&#34;you&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>log</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;hello&#34;</span><span class=p>,</span> <span class=s>&#34;val1&#34;</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=s>&#34;val2&#34;</span><span class=p>,</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kt>int</span><span class=p>{</span><span class=s>&#34;k&#34;</span><span class=p>:</span> <span class=mi>1</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=nx>log</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>3</span><span class=p>).</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;nice to meet you&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>log</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=kc>nil</span><span class=p>,</span> <span class=s>&#34;uh oh&#34;</span><span class=p>,</span> <span class=s>&#34;trouble&#34;</span><span class=p>,</span> <span class=kc>true</span><span class=p>,</span> <span class=s>&#34;reasons&#34;</span><span class=p>,</span> <span class=p>[]</span><span class=kt>float64</span><span class=p>{</span><span class=mf>0.1</span><span class=p>,</span> <span class=mf>0.11</span><span class=p>,</span> <span class=mf>3.14</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=nx>log</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>myError</span><span class=p>{</span><span class=s>&#34;an error occurred&#34;</span><span class=p>},</span> <span class=s>&#34;goodbye&#34;</span><span class=p>,</span> <span class=s>&#34;code&#34;</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><section class=footnotes role=doc-endnotes><hr><ol><li id=fn:1 role=doc-endnote><p><a href=https://github.com/kubernetes/klog/blob/v2.60.1/klog.go#L407-L421>https://github.com/kubernetes/klog</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
