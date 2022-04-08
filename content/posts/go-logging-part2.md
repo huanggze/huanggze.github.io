@@ -3,7 +3,7 @@ title: "Go 日志：klog"
 date: 2022-04-07T16:19:16+08:00
 toc: true
 categories: ["go"]
-series: ["golang-logging"]
+series: ["go-logging"]
 ---
 
 zap 是 Uber 开源的 logging 库。

@@ -3,7 +3,7 @@ title: "Go 日志：klog"
 date: 2022-04-06T21:23:09+08:00
 toc: true
 categories: ["go"]
-series: ["golang-logging"]
+series: ["go-logging"]
 ---
 
 klog 是 K8s 社区维护的 logging 库，支持在程序命令行注册以下 flag[^1]：
