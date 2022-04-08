@@ -1,7 +1,8 @@
 ---
 title: "Linux 命令：ulimit"
 date: 2022-04-08T21:41:46+08:00
-draft: true
+categories: ["Linux"]
+series: ["Linux 常用命令"]
 ---
 
 ulimit 可以用来控制 shell 执行程序资源使用[^1]。
