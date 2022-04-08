@@ -1,5 +1,5 @@
 ---
-title: "Go 日志：klog"
+title: "Go 日志：zap"
 date: 2022-04-07T16:19:16+08:00
 toc: true
 categories: ["go"]
