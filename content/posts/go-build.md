@@ -1,6 +1,7 @@
 ---
 title: "go build 命令"
 date: 2022-05-17T23:35:55+08:00
+series: ["go command"]
 ---
 
 go build 用于编译代码，生成可执行文件。如执行 `go build ed.go` 会生成 ed 或 ed.exe[^1][^2]。
