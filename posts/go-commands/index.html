@@ -4,11 +4,11 @@
 1 2 3 4 5 6 7  package main var version = &#34;1."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/go-commands/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-05-17T23:35:55+08:00"><meta property="article:modified_time" content="2022-05-17T23:35:55+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="go 命令行工具"><meta name=twitter:description content="go build go build 用于编译代码，生成可执行文件。如执行 go build ed.go 会生成 ed 或 ed.exe12。
 参数说明 -gcflags 编译器参数。一组传递给 go tool compile 的参数，可通过查 go tool compile 命令查到有哪些支持的参数3，如 -N 关闭编译器优化，-l 关闭内联（inlining）：
 1 2 3  go build -gcflags &#34;-N -l&#34; main.go go build -gcflags=&#34;-N -l&#34; main.go go build -gcflags=-N -gcflags=-l main.go   -ldflags 链接器参数。一组传递给 go tool link 的参数4，如 -X importpath.name=value 设置包内指定变量的值，该变量可以是未赋值或初始化了的：
-1 2 3 4 5 6 7  package main var version = &#34;1."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - go 命令行工具</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1652968377.css><script defer type=text/javascript src=/minima.1652968377.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+1 2 3 4 5 6 7  package main var version = &#34;1."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - go 命令行工具</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1652975027.css><script defer type=text/javascript src=/minima.1652975027.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
-<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#go-build>go build</a><ul><li><a href=#参数说明>参数说明</a></li></ul></li><li><a href=#go-install>go install</a></li><li><a href=#go-generate>go generate</a></li><li><a href=#go-vet>go vet</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">go 命令行工具</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; May 17, 2022</div></div><main><p></p><article class=md><h2 id=go-build>go build</h2><p>go build 用于编译代码，生成可执行文件。如执行 <code>go build ed.go</code> 会生成 ed 或 ed.exe<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup><sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p><h3 id=参数说明>参数说明</h3><h4 id=-gcflags>-gcflags</h4><p>编译器参数。一组传递给 <code>go tool compile</code> 的参数，可通过查 <code>go tool compile</code> 命令查到有哪些支持的参数<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>，如 -N 关闭编译器优化，-l 关闭内联（inlining）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#go-build>go build</a><ul><li><a href=#参数说明>参数说明</a></li></ul></li><li><a href=#go-install>go install</a></li><li><a href=#go-generate>go generate</a></li><li><a href=#go-vet>go vet</a></li><li><a href=#go-list>go list</a><ul><li><a href=#用法>用法</a></li><li><a href=#参数说明-1>参数说明</a></li></ul></li></ul></nav></div></details><h1 class="mt-6 mb-6">go 命令行工具</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; May 17, 2022</div></div><main><p></p><article class=md><h2 id=go-build>go build</h2><p>go build 用于编译代码，生成可执行文件。如执行 <code>go build ed.go</code> 会生成 ed 或 ed.exe<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup><sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p><h3 id=参数说明>参数说明</h3><h4 id=-gcflags>-gcflags</h4><p>编译器参数。一组传递给 <code>go tool compile</code> 的参数，可通过查 <code>go tool compile</code> 命令查到有哪些支持的参数<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>，如 -N 关闭编译器优化，-l 关闭内联（inlining）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>go build -gcflags <span class=s2>&#34;-N -l&#34;</span> main.go
@@ -54,6 +54,100 @@ whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</
 </span><span class=lnt>2
 </span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>//go:generate echo &#34;this is a test.&#34;
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kn>package</span> <span class=nx>mypkg</span>
-</span></span></code></pre></td></tr></table></div></div><p>执行 <code>go generate mypkg.go</code> 会打印 &ldquo;this is a test."。</p><h2 id=go-vet>go vet</h2><div class=footnotes role=doc-endnotes><hr><ol><li id=fn:1><p><a href=https://www.jianshu.com/p/31eb601a6e95>go 工具链</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2><p><a href=https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies>Go Command</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3><p><a href=https://pkg.go.dev/cmd/compile>go tool compile</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4><p><a href=https://pkg.go.dev/cmd/link>go tool link</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:5><p><a href=https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies>go install</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></div></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+</span></span></code></pre></td></tr></table></div></div><p>执行 <code>go generate mypkg.go</code> 会打印 &ldquo;this is a test."。</p><h2 id=go-vet>go vet</h2><p>go vet 检查代码并报告可疑错误。通过 go doc cmd/vet 可以查看支持的命令。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nf>printf</span><span class=p>(</span><span class=s>&#34;test&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ go vet .
+</span></span><span class=line><span class=cl><span class=c1># awesomeProject</span>
+</span></span><span class=line><span class=cl>vet: ./main.go:4:3: undeclared name: prinf
+</span></span></code></pre></td></tr></table></div></div><h2 id=go-list>go list</h2><p>go list 逐行列出包名。</p><h3 id=用法>用法</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>go list <span class=o>[</span>-f format<span class=o>]</span> <span class=o>[</span>-json<span class=o>]</span> <span class=o>[</span>-m<span class=o>]</span> <span class=o>[</span>list flags<span class=o>]</span> <span class=o>[</span>build flags<span class=o>]</span> <span class=o>[</span>packages<span class=o>]</span>
+</span></span></code></pre></td></tr></table></div></div><p>示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ tree .
+</span></span><span class=line><span class=cl>.
+</span></span><span class=line><span class=cl>├── gen
+</span></span><span class=line><span class=cl>│   ├── a
+</span></span><span class=line><span class=cl>│   │   └── a.go
+</span></span><span class=line><span class=cl>│   ├── b
+</span></span><span class=line><span class=cl>│   │   └── b.go
+</span></span><span class=line><span class=cl>│   └── gen.go
+</span></span><span class=line><span class=cl>└── main.go
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>$ go list ./...
+</span></span><span class=line><span class=cl>awesomeProject
+</span></span><span class=line><span class=cl>awesomeProject/gen
+</span></span><span class=line><span class=cl>awesomeProject/gen/a
+</span></span><span class=line><span class=cl>awesomeProject/gen/b
+</span></span></code></pre></td></tr></table></div></div><p>go 命令行工具中，（&mldr;）表示通配符，比如 <code>net/...</code> 同时匹配 <code>net</code> 包和 <code>net/http</code><sup id=fnref:6><a href=#fn:6 class=footnote-ref role=doc-noteref>6</a></sup>。</p><p>另外，（.）以及（..）分别表示当前目录和上一级目录：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ go list go list ./gen/a/../...
+</span></span><span class=line><span class=cl>awesomeProject/gen
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>$ go list ./gen/a/../... 
+</span></span><span class=line><span class=cl>awesomeProject/gen
+</span></span><span class=line><span class=cl>awesomeProject/gen/a
+</span></span><span class=line><span class=cl>awesomeProject/gen/b
+</span></span></code></pre></td></tr></table></div></div><p>多个 go 命令行工具可以组合使用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ go vet <span class=k>$(</span>go list ./...<span class=k>)</span>
+</span></span><span class=line><span class=cl><span class=c1># awesomeProject/gen/a</span>
+</span></span><span class=line><span class=cl>vet: gen/a/a.go:4:2: undeclared name: <span class=nb>printf</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=参数说明-1>参数说明</h3><h4 id=-m>-m</h4><p>打印模块名，而不是包名。all 是特殊用法，表示所有在使用模块。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ go list -m all
+</span></span><span class=line><span class=cl>awesomeProject
+</span></span><span class=line><span class=cl>cloud.google.com/go v0.26.0
+</span></span><span class=line><span class=cl>github.com/BurntSushi/toml v0.3.1
+</span></span><span class=line><span class=cl>github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46
+</span></span><span class=line><span class=cl>github.com/PuerkitoBio/purell v1.1.1
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></td></tr></table></div></div><h4 id=-json>-json</h4><p>使用 json 格式打印</p><h4 id=-u>-u</h4><p>提示可升级信息</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ go list -m -u all
+</span></span><span class=line><span class=cl>k8s.io/api v0.21.0 <span class=o>[</span>v0.24.0<span class=o>]</span>
+</span></span><span class=line><span class=cl>k8s.io/apimachinery v0.21.0 <span class=o>[</span>v0.24.0<span class=o>]</span>
+</span></span><span class=line><span class=cl>k8s.io/gengo v0.0.0-20200413195148-3a45101e95ac <span class=o>[</span>v0.0.0-20220307231824-4627b89bbf1b<span class=o>]</span>
+</span></span><span class=line><span class=cl>k8s.io/klog/v2 v2.8.0 <span class=o>[</span>v2.60.1<span class=o>]</span>
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></td></tr></table></div></div><div class=footnotes role=doc-endnotes><hr><ol><li id=fn:1><p><a href=https://www.jianshu.com/p/31eb601a6e95>go 工具链</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2><p><a href=https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies>Go Command</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3><p><a href=https://pkg.go.dev/cmd/compile>go tool compile</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4><p><a href=https://pkg.go.dev/cmd/link>go tool link</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:5><p><a href=https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies>go install</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:6><p><a href=https://pkg.go.dev/cmd/go@go1.18.2#hdr-Package_lists_and_patterns>Package lists and patterns</a>&#160;<a href=#fnref:6 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></div></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
 <a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
 <a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
