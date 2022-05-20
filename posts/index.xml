@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on Hi Folks</title><link>https://huanggze.top/posts/</link><description>Recent content in Posts on Hi Folks</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><copyright>© huanggze 2021</copyright><lastBuildDate>Tue, 17 May 2022 23:35:55 +0800</lastBuildDate><atom:link href="https://huanggze.top/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>go 命令行工具</title><link>https://huanggze.top/posts/go-commands/</link><pubDate>Tue, 17 May 2022 23:35:55 +0800</pubDate><guid>https://huanggze.top/posts/go-commands/</guid><description>go build go build 用于编译代码，生成可执行文件。如执行 go build ed.go 会生成 ed 或 ed.exe12。
 参数说明 -gcflags 编译器参数。一组传递给 go tool compile 的参数，可通过查 go tool compile 命令查到有哪些支持的参数3，如 -N 关闭编译器优化，-l 关闭内联（inlining）：
 1 2 3 go build -gcflags &amp;#34;-N -l&amp;#34; main.go go build -gcflags=&amp;#34;-N -l&amp;#34; main.go go build -gcflags=-N -gcflags=-l main.go -ldflags 链接器参数。一组传递给 go tool link 的参数4，如 -X importpath.name=value 设置包内指定变量的值，该变量可以是未赋值或初始化了的：
-1 2 3 4 5 6 7 package main var version = &amp;#34;1.</description></item><item><title>Makefile 语法学习</title><link>https://huanggze.top/posts/learn-makefile/</link><pubDate>Sun, 15 May 2022 21:10:16 +0800</pubDate><guid>https://huanggze.top/posts/learn-makefile/</guid><description>变量赋值 简单赋值（:=） 一旦 make 读入该变量的定义语句，赋值运算符右边部分会立刻扩展，而扩展后的文本会被存储成该变量的值1：
+1 2 3 4 5 6 7 package main var version = &amp;#34;1.</description></item><item><title>Git 学习</title><link>https://huanggze.top/posts/learn-git/</link><pubDate>Mon, 16 May 2022 21:46:44 +0800</pubDate><guid>https://huanggze.top/posts/learn-git/</guid><description>git rev-list 按时间倒序列出 commit（即 reverse-list）。
+假设 commit 提交历史从近到远有 5 条：
+1 2 3 4 5 6 $ git log E - (HEAD -&amp;gt; master) addE (10/19/2019 13:31:19) D - addD (10/18/2019 13:31:19) C - addC (10/17/2019 13:31:19) B - addB (10/16/2019 13:31:19) A - addA (10/15/2019 13:31:19) 例子1：
+git rev-list D：打印 D 及更早的 commit 节点
+git rev-list D...B：打印 D 到 B 之间的节点，且不包括 B
+git rev-list D ^B：打印 D 及更早的节点，并剔除 B 及更早的节点（同上）</description></item><item><title>Makefile 语法学习</title><link>https://huanggze.top/posts/learn-makefile/</link><pubDate>Sun, 15 May 2022 21:10:16 +0800</pubDate><guid>https://huanggze.top/posts/learn-makefile/</guid><description>变量赋值 简单赋值（:=） 一旦 make 读入该变量的定义语句，赋值运算符右边部分会立刻扩展，而扩展后的文本会被存储成该变量的值1：
 1 2 3 x := foo y := $(x) bar x := later 等同于：
 1 2 x := later y := foo bar 递归变量（=） 扩展的动作会被延迟到该变量被使用的时候进行。
 1 2 3 x = foo y = $(x) bar x = later 条件变量（?=） 只会在变量的值尚不存在是进行赋值操作。
