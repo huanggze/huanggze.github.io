@@ -1,7 +1,6 @@
 ---
-title: "Learn Git"
+title: "Git 学习"
 date: 2022-05-16T21:46:44+08:00
-draft: true
 toc: true
 ---
 
@@ -116,6 +115,16 @@ update
 ## git config
 
 git config user.name：打印 git 用户名
+
+## git tag
+
+- 查询所有标签：`git tag`；
+- 给当前 commit 打标签：`git tag <tag_name>`；
+- 删除本地标签：`git tag -d <tag_name>`
+
+参数：
+
+-m：给标签添加描述信息
 
 [^1]: [Git rev-list 详解](https://blog.csdn.net/Gdeer/article/details/102667263)
 [^2]: [git log: pretty formats](https://git-scm.com/docs/git-log#_pretty_formats)
