@@ -185,6 +185,15 @@ k8s.io/klog/v2 v2.8.0 [v2.60.1]
 ...
 ```
 
+## go get
+
+go get 命令会添加依赖包到 module，下载包并更新到 go.mod。
+
+```shell
+go get example.com/pkg
+go get example.com/pkg@v1.2.3
+```
+
 [^1]: [go 工具链](https://www.jianshu.com/p/31eb601a6e95)
 [^2]: [Go Command](https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies)
 [^3]: [go tool compile](https://pkg.go.dev/cmd/compile)
