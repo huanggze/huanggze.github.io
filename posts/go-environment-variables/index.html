@@ -1,0 +1,73 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Go 环境变量"><meta property="og:description" content="go 的 runtime 包提供一些控制 Go 程序运行时的操作，其中包括 go 环境变量1。
+GOTRACEBACK GOTRACEBACK 环境变量用于控制当 Go 程序 panic 时输出栈信息的多少。变量值可以为：
+ none：不输出任何信息 single：仅输出当前崩溃的 goroutine 信息（默认值） all：打印所有由用户创建的 goroutine 信息 system：类似 all，并包含系统创建的 goroutine crash：类似 system，但不是直接 panic 退出，而是执行操作系统的一些操作。比如，在 Unix 系统上会生成 core dump  修改 GOTRACEBACK 有两种方式，通过 runtime/debug 包在代码里修改：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24  package main import ( &#34;runtime/debug&#34; &#34;time&#34; ) func main() { debug."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/go-environment-variables/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-05-21T11:37:29+08:00"><meta property="article:modified_time" content="2022-05-21T11:37:29+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Go 环境变量"><meta name=twitter:description content="go 的 runtime 包提供一些控制 Go 程序运行时的操作，其中包括 go 环境变量1。
+GOTRACEBACK GOTRACEBACK 环境变量用于控制当 Go 程序 panic 时输出栈信息的多少。变量值可以为：
+ none：不输出任何信息 single：仅输出当前崩溃的 goroutine 信息（默认值） all：打印所有由用户创建的 goroutine 信息 system：类似 all，并包含系统创建的 goroutine crash：类似 system，但不是直接 panic 退出，而是执行操作系统的一些操作。比如，在 Unix 系统上会生成 core dump  修改 GOTRACEBACK 有两种方式，通过 runtime/debug 包在代码里修改：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24  package main import ( &#34;runtime/debug&#34; &#34;time&#34; ) func main() { debug."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Go 环境变量</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1653142162.css><script defer type=text/javascript src=/minima.1653142162.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><h1 class="mt-6 mb-6">Go 环境变量</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; May 21, 2022</div></div><main><p></p><article class=md><p>go 的 runtime 包提供一些控制 Go 程序运行时的操作，其中包括 go 环境变量<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><h2 id=gotraceback>GOTRACEBACK</h2><p>GOTRACEBACK 环境变量用于控制当 Go 程序 panic 时输出栈信息的多少。变量值可以为：</p><ul><li>none：不输出任何信息</li><li>single：仅输出当前崩溃的 goroutine 信息（默认值）</li><li>all：打印所有由用户创建的 goroutine 信息</li><li>system：类似 all，并包含系统创建的 goroutine</li><li>crash：类似 system，但不是直接 panic 退出，而是执行操作系统的一些操作。比如，在 Unix 系统上会生成 core dump</li></ul><p>修改 GOTRACEBACK 有两种方式，通过 runtime/debug 包在代码里修改：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>	<span class=s>&#34;runtime/debug&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=s>&#34;time&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>debug</span><span class=p>.</span><span class=nf>SetTraceback</span><span class=p>(</span><span class=s>&#34;crash&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>	<span class=k>go</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nb>println</span><span class=p>(</span><span class=s>&#34;go routine&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=nx>time</span><span class=p>.</span><span class=nf>Sleep</span><span class=p>(</span><span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=kd>var</span> <span class=nx>i</span> <span class=o>*</span><span class=kt>int</span>
+</span></span><span class=line><span class=cl>			<span class=o>*</span><span class=nx>i</span><span class=p>=</span><span class=mi>0</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nb>println</span><span class=p>(</span><span class=s>&#34;main func&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=nx>time</span><span class=p>.</span><span class=nf>Sleep</span><span class=p>(</span><span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>或者在程序启动时修改：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=nv>GOTRACEBACK</span><span class=o>=</span>crash go run main.go
+</span></span></code></pre></td></tr></table></div></div><p>注意，通过 os.Setenv 来设置是无效的，因为程序以及启动了，设置太晚了<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>os</span><span class=p>.</span><span class=nf>Setenv</span><span class=p>(</span><span class=s>&#34;GOTRACEBACK&#34;</span><span class=p>,</span> <span class=s>&#34;crash&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=footnotes role=doc-endnotes><hr><ol><li id=fn:1><p><a href=https://pkg.go.dev/runtime#hdr-Environment_Variables>go runtime: Environment Variables</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2><p><a href=https://stackoverflow.com/questions/57176229/why-calling-setenv-from-code-not-working>Why Calling Setenv from code Not Working?</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></div></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
