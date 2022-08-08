@@ -1,16 +1,18 @@
 <!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Makefile 语法学习"><meta property="og:description" content="变量赋值 简单赋值（:=） 一旦 make 读入该变量的定义语句，赋值运算符右边部分会立刻扩展，而扩展后的文本会被存储成该变量的值1：
-1 2 3  x := foo y := $(x) bar x := later   等同于：
-1 2  x := later y := foo bar   递归变量（=） 扩展的动作会被延迟到该变量被使用的时候进行。
-1 2 3  x = foo y = $(x) bar x = later   条件变量（?=） 只会在变量的值尚不存在是进行赋值操作。
+1 2 3 x := foo y := $(x) bar x := later 等同于：
+1 2 x := later y := foo bar 递归变量（=） 扩展的动作会被延迟到该变量被使用的时候进行。
+1 2 3 x = foo y = $(x) bar x = later 条件变量（?=） 只会在变量的值尚不存在是进行赋值操作。
 条件语句 ifeq：是否相等
-1 2 3  ifeq (arg1, arg2) ... endif   ifneq：是否不等
-1 2 3 4 5  ifneq (arg1, arg2) ."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/learn-makefile/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-05-15T21:10:16+08:00"><meta property="article:modified_time" content="2022-05-15T21:10:16+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Makefile 语法学习"><meta name=twitter:description content="变量赋值 简单赋值（:=） 一旦 make 读入该变量的定义语句，赋值运算符右边部分会立刻扩展，而扩展后的文本会被存储成该变量的值1：
-1 2 3  x := foo y := $(x) bar x := later   等同于：
-1 2  x := later y := foo bar   递归变量（=） 扩展的动作会被延迟到该变量被使用的时候进行。
-1 2 3  x = foo y = $(x) bar x = later   条件变量（?=） 只会在变量的值尚不存在是进行赋值操作。
+1 2 3 ifeq (arg1, arg2) ... endif ifneq：是否不等
+1 2 3 4 5 ifneq (arg1, arg2) ... else ... endif ifdef：是否有值
+1 2 3 ifdef variable-name ."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/learn-makefile/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-05-15T21:10:16+08:00"><meta property="article:modified_time" content="2022-05-15T21:10:16+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Makefile 语法学习"><meta name=twitter:description content="变量赋值 简单赋值（:=） 一旦 make 读入该变量的定义语句，赋值运算符右边部分会立刻扩展，而扩展后的文本会被存储成该变量的值1：
+1 2 3 x := foo y := $(x) bar x := later 等同于：
+1 2 x := later y := foo bar 递归变量（=） 扩展的动作会被延迟到该变量被使用的时候进行。
+1 2 3 x = foo y = $(x) bar x = later 条件变量（?=） 只会在变量的值尚不存在是进行赋值操作。
 条件语句 ifeq：是否相等
-1 2 3  ifeq (arg1, arg2) ... endif   ifneq：是否不等
-1 2 3 4 5  ifneq (arg1, arg2) ."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Makefile 语法学习</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1653142162.css><script defer type=text/javascript src=/minima.1653142162.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+1 2 3 ifeq (arg1, arg2) ... endif ifneq：是否不等
+1 2 3 4 5 ifneq (arg1, arg2) ... else ... endif ifdef：是否有值
+1 2 3 ifdef variable-name ."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Makefile 语法学习</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1659973328.css><script defer type=text/javascript src=/minima.1659973328.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
 whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
 <a class=ml-5 href=/categories>Categories</a>
 <a class=ml-5 href=/series>Series</a>
