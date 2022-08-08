@@ -194,9 +194,72 @@ go get example.com/pkg
 go get example.com/pkg@v1.2.3
 ```
 
+## godoc
+
+godoc 用于生成 Go 文档。
+
+安装方式：go get -v  golang.org/x/tools/cmd/godoc
+
+### 用法
+
+显示文档的 web 版：`godoc -http=:6060`
+
+以下是在代码中写文档，可以为包、函数、结构体写文档。type, const, func 以名称为注释的开头, package 以 Package name 为注释的开头[^7]：
+
+```go
+// ----- math/math.go -----
+
+// Package math 包含四则运算函数
+package math
+
+// Config 配置信息
+type Config struct {
+	ID   string
+	Base int
+}
+
+// Add 求两数和
+func Add(x, y int) int {
+	return x + y
+}
+```
+
+![go-commands-1.png](/images/go-commands-1.png)
+
+为函数写示例的规范如下，首先在文件同一目录下创建 `example_xxx_test.go`文件，包名命名为 `xxx_test`：
+
+```go
+// ----- math/example_math_test.go -----
+
+package math_test
+
+import "awesomeProject/math"
+
+// 示例放置在 Overview 下
+func Example_add() {
+	num := math.Add(1, 3)
+	print(num)
+	// Output:
+	// 4
+}
+
+// 示例放置在函数下
+func ExampleAdd() {
+	num := math.Add(1, 3)
+	print(num)
+	// Output:
+	// 4
+}
+```
+
+![go-commands-2.png](/images/go-commands-2.png)
+
+![go-commands-3.png](/images/go-commands-3.png)
+
 [^1]: [go 工具链](https://www.jianshu.com/p/31eb601a6e95)
 [^2]: [Go Command](https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies)
 [^3]: [go tool compile](https://pkg.go.dev/cmd/compile)
 [^4]: [go tool link](https://pkg.go.dev/cmd/link)
 [^5]: [go install](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
 [^6]: [Package lists and patterns](https://pkg.go.dev/cmd/go@go1.18.2#hdr-Package_lists_and_patterns)
+[^7]: [GoDoc的使用](https://www.jianshu.com/p/b91c4400d4b2)

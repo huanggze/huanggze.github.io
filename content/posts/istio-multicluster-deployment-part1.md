@@ -24,8 +24,8 @@ categories: ["Istio"]
 在两个集群上，下载安装 istioctl（1.12.2 版本）。由于 Istio 官网的下载脚本拉的是海外包，会超时，改用 ghproxy.com 代理下载。
 
 ```bash
-curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.12.2/istioctl-1.12.2-linux-amd64.tar.gz
-tar zxvf istioctl-1.12.2-linux-amd64.tar.gz
+curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.13.2/istioctl-1.13.2-linux-amd64.tar.gz
+tar zxvf istioctl-1.13.2-linux-amd64.tar.gz
 mv istioctl /usr/local/bin/
 ```
 
