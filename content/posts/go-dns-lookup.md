@@ -1,6 +1,7 @@
 ---
 title: "Go DNS 查询源码解析：LookupIP"
 date: 2022-09-17T17:48:53+08:00
+toc: true
 ---
 
 GO DNS lookup 代码位于 [net/lookup.go](https://github.com/golang/go/blob/go1.17.1/src/net/lookup.go#L206) 下 `func (r *Resolver) LookupIPAddr(ctx context.Context, host string) ([]IPAddr, error)` 函数中。这个函数有几个设计和特性，非常值得学习：
