@@ -7,7 +7,7 @@ toc: true
 GO DNS lookup 代码位于 [net/lookup.go](https://github.com/golang/go/blob/go1.17.1/src/net/lookup.go#L206) 下 `func (r *Resolver) LookupIPAddr(ctx context.Context, host string) ([]IPAddr, error)` 函数中。这个函数有几个设计和特性，非常值得学习：
 
 1. 能对相同 Host 的查询请求进行合并，避免重复请求；
-2. 使用 channel + select 语句，实现优雅的同步请求；
+2. 使用 channel + select 语句，实现优雅的同步请求操作；
 3. 使用 Cancel、Deadline Context，实现终止请求；
 4. Context 取消，不会影响到其他合并的请求得到结果；
 5. 底层使用 cgo 来调用 C 语言代码执行 DNS 查询。
@@ -18,7 +18,7 @@ GO DNS lookup 代码位于 [net/lookup.go](https://github.com/golang/go/blob/go1
 // LookupIPAddr looks up host using the local resolver.
 // It returns a slice of that host's IPv4 and IPv6 addresses.
 func (r *Resolver) LookupIPAddr(ctx context.Context, host string) ([]IPAddr, error) {
-return r.lookupIPAddr(ctx, "ip", host)
+    return r.lookupIPAddr(ctx, "ip", host)
 }
 ```
 
@@ -49,7 +49,7 @@ type Group struct {
 // call is an in-flight or completed singleflight.Do call
 // call 代表一次 DNS 查询请求
 type call struct {
-    // ...
+	// ...
 	
 	dups  int // 记录重复请求次数
 	chans []chan<- Result // 存放查询结果
@@ -95,22 +95,22 @@ func (r *Resolver) lookupIPAddr(ctx context.Context, network, host string) ([]IP
 	    dnsWaitGroup.Done()
 	}
 
-    select {
-    case <-ctx.Done():
+	select {
+	case <-ctx.Done():
 		// 由于 Context 取消，请求结束并报错
-	    if r.getLookupGroup().ForgetUnshared(lookupKey) {
-            lookupGroupCancel()
-        } else {
-            go func() {
-                <-ch
-                lookupGroupCancel()
-            }()
-        }
-	    err := mapErr(ctx.Err())
-        return nil, err
-    case r := <-ch:
-        return lookupIPReturn(r.Val, r.Err, r.Shared)
-    }
+		if r.getLookupGroup().ForgetUnshared(lookupKey) {
+			lookupGroupCancel()
+		} else {
+			go func() {
+				<-ch
+				lookupGroupCancel()
+			}()
+		}
+		err := mapErr(ctx.Err())
+		return nil, err
+	case r := <-ch:
+		return lookupIPReturn(r.Val, r.Err, r.Shared)
+	}
 }
 ```
 
