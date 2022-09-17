@@ -1,5 +1,5 @@
 ---
-title: "Go DNS 查询源码解析（一）：LookupIP"
+title: "Go DNS 查询源码解析：LookupIP"
 date: 2022-09-17T17:48:53+08:00
 ---
 
