@@ -29,7 +29,7 @@ func (r *Resolver) LookupIPAddr(ctx context.Context, host string) ([]IPAddr, err
 ```go
 type Resolver struct {
     PreferGo bool // 是否使用 Go 实现的 DNS 解析器，还是用 CGO 调用 C 语言的代码
-	Dial func(ctx context.Context, network, address string) (Conn, error) // Go 实现的 DNS 解析器会调用该函数来，来发起 DNS 请求
+    Dial func(ctx context.Context, network, address string) (Conn, error) // Go 实现的 DNS 解析器会调用该函数来，来发起 DNS 请求
 
     lookupGroup singleflight.Group // 用于合并相同 host 的 DNS 查询
 }
@@ -42,25 +42,25 @@ package singleflight
 
 // Group 用于去重
 type Group struct {
-	mu sync.Mutex       // protects m
-	m  map[string]*call // lazily initialized
+    mu sync.Mutex       // protects m
+    m  map[string]*call // lazily initialized
 }
 
 // call is an in-flight or completed singleflight.Do call
 // call 代表一次 DNS 查询请求
 type call struct {
-	// ...
-	
-	dups  int // 记录重复请求次数
-	chans []chan<- Result // 存放查询结果
+    // ...
+    
+    dups  int // 记录重复请求次数
+    chans []chan<- Result // 存放查询结果
 }
 
 // Result holds the results of Do, so they can be passed
 // on a channel.
 type Result struct {
-	Val    interface{}
-	Err    error
-	Shared bool
+    Val    interface{}
+    Err    error
+    Shared bool
 }
 ```
 
@@ -72,45 +72,45 @@ LookupIPAddr 实际请求的是 lookupIPAddr 内部方法，该方法代码骨�
 var dnsWaitGroup sync.WaitGroup
 
 func (r *Resolver) lookupIPAddr(ctx context.Context, network, host string) ([]IPAddr, error) {
-	// ...
+    // ...
 
-	// DNS 查询函数
-	resolverFunc := r.lookupIP
-	
-	// 真正执行 DoChan 的时候，不是直接用 ctx，而是再创建一个 lookupGroupCtx
-	// 这是为了避免，ctx 被取消，影响到其他并发的查询。
-	// 可以看到 withUnexpiredValuesPreserved 中另起了一个 context.Background()
-	lookupGroupCtx, lookupGroupCancel := context.WithCancel(withUnexpiredValuesPreserved(ctx))
-	
-	lookupKey := network + "\000" + host
-	// 发起请求加入 WaitGroup 中等待执行完成
-	dnsWaitGroup.Add(1)
-	// 如果查询成功，结果会写入 ch；如果是重复请求，called 返回 false
-	// getLookupGroup 没有什么特别的，就是返回 singleflight.Group
-	ch, called := r.getLookupGroup().DoChan(lookupKey, func() (interface{}, error) {
-	    defer dnsWaitGroup.Done()
-	    return testHookLookupIP(lookupGroupCtx, resolverFunc, network, host)
-	})
-	if !called {
-	    dnsWaitGroup.Done()
-	}
+    // DNS 查询函数
+    resolverFunc := r.lookupIP
+    
+    // 真正执行 DoChan 的时候，不是直接用 ctx，而是再创建一个 lookupGroupCtx
+    // 这是为了避免，ctx 被取消，影响到其他并发的查询。
+    // 可以看到 withUnexpiredValuesPreserved 中另起了一个 context.Background()
+    lookupGroupCtx, lookupGroupCancel := context.WithCancel(withUnexpiredValuesPreserved(ctx))
+    
+    lookupKey := network + "\000" + host
+    // 发起请求加入 WaitGroup 中等待执行完成
+    dnsWaitGroup.Add(1)
+    // 如果查询成功，结果会写入 ch；如果是重复请求，called 返回 false
+    // getLookupGroup 没有什么特别的，就是返回 singleflight.Group
+    ch, called := r.getLookupGroup().DoChan(lookupKey, func() (interface{}, error) {
+        defer dnsWaitGroup.Done()
+        return testHookLookupIP(lookupGroupCtx, resolverFunc, network, host)
+    })
+    if !called {
+        dnsWaitGroup.Done()
+    }
 
-	select {
-	case <-ctx.Done():
-		// 由于 Context 取消，请求结束并报错
-		if r.getLookupGroup().ForgetUnshared(lookupKey) {
-			lookupGroupCancel()
-		} else {
-			go func() {
-				<-ch
-				lookupGroupCancel()
-			}()
-		}
-		err := mapErr(ctx.Err())
-		return nil, err
-	case r := <-ch:
-		return lookupIPReturn(r.Val, r.Err, r.Shared)
-	}
+    select {
+    case <-ctx.Done():
+        // 由于 Context 取消，请求结束并报错
+        if r.getLookupGroup().ForgetUnshared(lookupKey) {
+            lookupGroupCancel()
+        } else {
+            go func() {
+                <-ch
+                lookupGroupCancel()
+            }()
+        }
+        err := mapErr(ctx.Err())
+        return nil, err
+    case r := <-ch:
+        return lookupIPReturn(r.Val, r.Err, r.Shared)
+    }
 }
 ```
 
@@ -154,8 +154,8 @@ func (g *Group) doCall(c *call, key string, fn func() (interface{}, error)) {
     
     g.mu.Lock()
     delete(g.m, key)
-	// 给并发请求中的每个 ch 都发一次数据，
-	// 因为，所有的结果等待 channel 都在这里，每个都要发一份数据
+    // 给并发请求中的每个 ch 都发一次数据，
+    // 因为，所有的结果等待 channel 都在这里，每个都要发一份数据
     for _, ch := range c.chans {
         ch <- Result{c.val, c.err, c.dups > 0}
     }
@@ -171,19 +171,19 @@ DoChan 的执行结果会放到 ch 中，ch 是一个长度为，存放 Result �
 
 ```go
 func (r *Resolver) lookupIP(ctx context.Context, network, host string) (addrs []IPAddr, err error) {
-	if r.preferGo() {
-		return r.goLookupIP(ctx, network, host)
-	}
-	order := systemConf().hostLookupOrder(r, host)
-	if order == hostLookupCgo {
-		if addrs, err, ok := cgoLookupIP(ctx, network, host); ok {
-			return addrs, err
-		}
-		// cgo not available (or netgo); fall back to Go's DNS resolver
-		order = hostLookupFilesDNS
-	}
-	ips, _, err := r.goLookupIPCNAMEOrder(ctx, network, host, order)
-	return ips, err
+    if r.preferGo() {
+        return r.goLookupIP(ctx, network, host)
+    }
+    order := systemConf().hostLookupOrder(r, host)
+    if order == hostLookupCgo {
+        if addrs, err, ok := cgoLookupIP(ctx, network, host); ok {
+            return addrs, err
+        }
+        // cgo not available (or netgo); fall back to Go's DNS resolver
+        order = hostLookupFilesDNS
+    }
+    ips, _, err := r.goLookupIPCNAMEOrder(ctx, network, host, order)
+    return ips, err
 }
 ```
 
@@ -197,8 +197,8 @@ func systemConf() *conf {
 }
 
 func initConfVal() {
-	// ...
-	
+    // ...
+    
     // Darwin pops up annoying dialog boxes if programs try to do
     // their own DNS requests. So always use cgo instead, which
     // avoids that.
@@ -206,7 +206,7 @@ func initConfVal() {
         confVal.forceCgoLookupHost = true
         return
     }
-	
-	// ...
+    
+    // ...
 }
 ```
