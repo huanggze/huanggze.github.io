@@ -1,0 +1,485 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Redis go客户端连接池实现"><meta property="og:description" content="Redis 连接池是维护 Redis 连接的缓存，当需要对 Redis 发出请求时可以复用连接，减少因为新 TCP 连接的建立带来的开销，从而提高性能。我们在最近的压测中发现，我们使用的第三方库 redigo 连接池，有时候，从连接池中拿到一个连接的耗时，比 redis 命令实际执行时间还长。通过本文的源码分析可以知，阻塞点有两个：
+连接池大小 MaxActive 如果太小，会导致获取连接时，活跃连接达到上限，程序阻塞在 waitVacantConn() 函数； 连接池设置了 TestOnBorrow（如：通过 Redis PING 命令测试连接可用性），则获取连接时会有额外网络开销来执行一次 Redis PING。并且如果 PING 失败，redigo 会继续遍历空闲连接直到找到一个可用连接返回。 同事，我们还对比了，redigo 和 redis v8 两个 go Redis 连接池库，发现 redigo 不设置 TestOnBorrow 的话，redis v8 和相比 redigo 性能相差不大。但生产环境一般会设置 TestOnBorrow，这样的话，redis v8 性能优势明显。而且，redis v8 社区活跃度高，功能也比 redigo 多，在今后的开发中，仍应优先使用 redis v8。
+本文介绍两个连接池的设计和源码分析，重点指出可能导致程序阻塞的瓶颈点。
+性能对比 首先，我们看一下两个库的性能对比大小，实验参数和方法如下：
+Redis 服务端版本 v6.2.4，机器性能48核126G; Redis 客户端 redigo 和 redis v8 连接池大小都设置为 256； 使用 go parallel benchmark 框架做并发测试； 客户端所在机器性能40核64G； go 版本 1."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/intro-redis-conncetion-pool/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-09-25T21:00:31+08:00"><meta property="article:modified_time" content="2022-09-25T21:00:31+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Redis go客户端连接池实现"><meta name=twitter:description content="Redis 连接池是维护 Redis 连接的缓存，当需要对 Redis 发出请求时可以复用连接，减少因为新 TCP 连接的建立带来的开销，从而提高性能。我们在最近的压测中发现，我们使用的第三方库 redigo 连接池，有时候，从连接池中拿到一个连接的耗时，比 redis 命令实际执行时间还长。通过本文的源码分析可以知，阻塞点有两个：
+连接池大小 MaxActive 如果太小，会导致获取连接时，活跃连接达到上限，程序阻塞在 waitVacantConn() 函数； 连接池设置了 TestOnBorrow（如：通过 Redis PING 命令测试连接可用性），则获取连接时会有额外网络开销来执行一次 Redis PING。并且如果 PING 失败，redigo 会继续遍历空闲连接直到找到一个可用连接返回。 同事，我们还对比了，redigo 和 redis v8 两个 go Redis 连接池库，发现 redigo 不设置 TestOnBorrow 的话，redis v8 和相比 redigo 性能相差不大。但生产环境一般会设置 TestOnBorrow，这样的话，redis v8 性能优势明显。而且，redis v8 社区活跃度高，功能也比 redigo 多，在今后的开发中，仍应优先使用 redis v8。
+本文介绍两个连接池的设计和源码分析，重点指出可能导致程序阻塞的瓶颈点。
+性能对比 首先，我们看一下两个库的性能对比大小，实验参数和方法如下：
+Redis 服务端版本 v6.2.4，机器性能48核126G; Redis 客户端 redigo 和 redis v8 连接池大小都设置为 256； 使用 go parallel benchmark 框架做并发测试； 客户端所在机器性能40核64G； go 版本 1."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Redis go客户端连接池实现</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1664381959.css><script defer type=text/javascript src=/minima.1664381959.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><h1 class="mt-6 mb-6">Redis go客户端连接池实现</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Sep 25, 2022</div></div><main><p></p><article class=md><p>Redis 连接池是维护 Redis 连接的缓存，当需要对 Redis 发出请求时可以复用连接，减少因为新 TCP 连接的建立带来的开销，从而提高性能。我们在最近的压测中发现，我们使用的第三方库 redigo 连接池，有时候，从连接池中拿到一个连接的耗时，比 redis 命令实际执行时间还长。通过本文的源码分析可以知，阻塞点有两个：</p><ol><li>连接池大小 MaxActive 如果太小，会导致获取连接时，活跃连接达到上限，程序阻塞在 waitVacantConn() 函数；</li><li>连接池设置了 TestOnBorrow（如：通过 Redis PING 命令测试连接可用性），则获取连接时会有额外网络开销来执行一次 Redis PING。并且如果 PING 失败，redigo 会继续遍历空闲连接直到找到一个可用连接返回。</li></ol><p>同事，我们还对比了，<a href=https://github.com/gomodule/redigo>redigo</a> 和 <a href=https://github.com/go-redis/redis>redis v8</a> 两个 go Redis 连接池库，发现 redigo 不设置 TestOnBorrow 的话，redis v8 和相比 redigo 性能相差不大。但生产环境一般会设置 TestOnBorrow，这样的话，redis v8 性能优势明显。而且，redis v8 社区活跃度高，功能也比 redigo 多，在今后的开发中，仍应优先使用 redis v8。</p><p>本文介绍两个连接池的设计和源码分析，重点指出可能导致程序阻塞的瓶颈点。</p><h2 id=性能对比>性能对比</h2><p>首先，我们看一下两个库的性能对比大小，实验参数和方法如下：</p><ul><li>Redis 服务端版本 v6.2.4，机器性能48核126G;</li><li>Redis 客户端 redigo 和 redis v8 连接池大小都设置为 256；</li><li>使用 go parallel benchmark 框架做并发测试；</li><li>客户端所在机器性能40核64G；</li><li>go 版本 1.16.10；</li><li>每项实验执行压测 10s；</li></ul><h3 id=实验一redigo-连接池不设置-testonborrow>实验一：redigo 连接池不设置 TestOnBorrow</h3><p>对比两种库实验结果如下：</p><table><thead><tr><th></th><th>redigo</th><th>redis v8</th></tr></thead><tbody><tr><td>HGETALL</td><td>8902 ns/op</td><td>8225 ns/op</td></tr><tr><td>HMSET</td><td>13572 ns/op</td><td>13618 ns/op</td></tr></tbody></table><p>分析压测数据，对比读写命令，redis v8 和 redigo 速度相差不大（单位：nanoseconds/operation。由于是并发测试，平均每次操作的时间会随并发度提高而下降，这里我们固定并发度 <code>SetParallelism(1000)</code>，具体 go benchmark 框架使用细节可看官方文档）。如果埋点分析，可进一步看到 redigo 耗时更多主要原因在于连接池的竞争，而实际 redis 命令执行耗时，两种库差别不大。</p><h3 id=实验二redigo-连接池设置-testonborrow>实验二：redigo 连接池设置 TestOnBorrow</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>TestOnBorrow</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>c</span> <span class=nx>redigo</span><span class=p>.</span><span class=nx>Conn</span><span class=p>,</span> <span class=nx>t</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Time</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>c</span><span class=p>.</span><span class=nf>Do</span><span class=p>(</span><span class=s>&#34;PING&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><table><thead><tr><th></th><th>redigo</th><th>redis v8</th></tr></thead><tbody><tr><td>HGETALL</td><td>13117 ns/op</td><td>8225 ns/op</td></tr><tr><td>HMSET</td><td>17140 ns/op</td><td>13618 ns/op</td></tr></tbody></table><p>此时可以看到 redigo 比 redis v8 差很多。</p><p>使用 redis v8 测试 HGETALL 的代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>Benchmark_Parallel_RedisV8_HGETALL</span><span class=p>(</span><span class=nx>b</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>B</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>pool</span> <span class=o>:=</span> <span class=nf>initRedisV8</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>b</span><span class=p>.</span><span class=nf>SetParallelism</span><span class=p>(</span><span class=mi>1000</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>b</span><span class=p>.</span><span class=nf>RunParallel</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>pb</span> <span class=o>*</span><span class=nx>testing</span><span class=p>.</span><span class=nx>PB</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>for</span> <span class=nx>pb</span><span class=p>.</span><span class=nf>Next</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>ctx</span> <span class=o>:=</span> <span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>			<span class=nx>reply</span> <span class=o>:=</span> <span class=nx>pool</span><span class=p>.</span><span class=nf>HGetAll</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>hashKey</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			
+</span></span><span class=line><span class=cl>			<span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>reply</span><span class=p>.</span><span class=nf>Result</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>reply</span><span class=p>.</span><span class=nf>Err</span><span class=p>()</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=o>||</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;HGETALL error: %v\n&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>err</span> <span class=o>:=</span> <span class=nx>pool</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;Close pool error: %v\n&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>实验结果示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ ./main -test.bench <span class=s2>&#34;Benchmark_Parallel_RedisV8_HGETALL&#34;</span> -test.benchtime 10s
+</span></span><span class=line><span class=cl>goos: linux
+</span></span><span class=line><span class=cl>goarch: amd64
+</span></span><span class=line><span class=cl>pkg: main
+</span></span><span class=line><span class=cl>cpu: Intel<span class=o>(</span>R<span class=o>)</span> Xeon<span class=o>(</span>R<span class=o>)</span> CPU E5-2630 v4 @ 2.20GHz
+</span></span><span class=line><span class=cl>Benchmark_Parallel_RedisV8_HGETALL-40     <span class=m>1422176</span>      <span class=m>8225</span> ns/op
+</span></span><span class=line><span class=cl>PASS
+</span></span></code></pre></td></tr></table></div></div><h2 id=连接池设计>连接池设计</h2><p>连接池需要设计包含以下功能：</p><ol><li>连接池初始化：设置连接池和底层 TCP socket 的建立参数。除此之外，像 redis v8 还会提前预热一批空闲连接（MinIdleConns）；</li><li>连接的获取与释放：每次使用完连接，都需要归回到连接池。常见的连接池管理算法有 FIFO，先放入到池中的连接，先被取走。redis v8 通过切片实现，而 redigo 通过双向链表来实现。另外 redis v8 也支持 LIFO，且为默认算法；</li><li>建立新连接：本质上一个 Redis 的连接是封装了 go 标准库中的 <code>net.Conn</code>。底层通过调用 <code>net.Dial("tcp", "127.0.0.1:6379")</code> 来建立一次新的且可以复用的 TCP 连接。Dial() 更底层会有 DNS 查询、通关 CGO 调用 C 代码和系统调用来完成 TCP 建立；</li><li>向连接读写 Redis 命令：Redis 有自己的协议，发送 Redis 命令即是向 <code>net.Conn</code> 连接 write/read 二进制数据。</li></ol><p>对比 redigo 和 redis v8 源码，可以看到两个库，在 1、3、4 这四点上设计没有什么不同，唯一区别在于第 2 点，连接池管理的设计。</p><p>如以下是 redigo 和 redis v8 封装的连接 Conn，本质上其实都是封装了 go 标准库中的 <code>net.Conn</code>，并使用 bufio 包的 Reader 和 bufio.Writer 封装读写<code>net.Conn</code>操作（如 <code>bufio.NewReader(netConn)</code>）。这些部分都是相同的。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// redigo
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>conn</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// Shared
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>mu</span>      <span class=nx>sync</span><span class=p>.</span><span class=nx>Mutex</span>
+</span></span><span class=line><span class=cl>    <span class=nx>pending</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=nx>err</span>     <span class=kt>error</span>
+</span></span><span class=line><span class=cl>    <span class=nx>conn</span>    <span class=nx>net</span><span class=p>.</span><span class=nx>Conn</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// Read
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>readTimeout</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span>
+</span></span><span class=line><span class=cl>    <span class=nx>br</span>          <span class=o>*</span><span class=nx>bufio</span><span class=p>.</span><span class=nx>Reader</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// Write
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>writeTimeout</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span>
+</span></span><span class=line><span class=cl>    <span class=nx>bw</span>           <span class=o>*</span><span class=nx>bufio</span><span class=p>.</span><span class=nx>Writer</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// ...省略其他字段
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// redis v8
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>Conn</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>usedAt</span>  <span class=kt>int64</span> <span class=c1>// atomic
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>netConn</span> <span class=nx>net</span><span class=p>.</span><span class=nx>Conn</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>rd</span> <span class=o>*</span><span class=nx>proto</span><span class=p>.</span><span class=nx>Reader</span>
+</span></span><span class=line><span class=cl>	<span class=nx>bw</span> <span class=o>*</span><span class=nx>bufio</span><span class=p>.</span><span class=nx>Writer</span>
+</span></span><span class=line><span class=cl>	<span class=nx>wr</span> <span class=o>*</span><span class=nx>proto</span><span class=p>.</span><span class=nx>Writer</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>Inited</span>    <span class=kt>bool</span>
+</span></span><span class=line><span class=cl>	<span class=nx>pooled</span>    <span class=kt>bool</span>
+</span></span><span class=line><span class=cl>	<span class=nx>createdAt</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Time</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=redigo-pool>Redigo Pool</h2><p>接下来，我们重点看看两个库连接池管理的设计，以下是 redigo 的 Pool 定义：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Pool</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>MaxIdle</span>   <span class=kt>int</span>
+</span></span><span class=line><span class=cl>	<span class=nx>MaxActive</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...省略部分公开字段
+</span></span></span><span class=line><span class=cl><span class=c1></span>	
+</span></span><span class=line><span class=cl>    <span class=nx>mu</span>           <span class=nx>sync</span><span class=p>.</span><span class=nx>Mutex</span> <span class=c1>// 连接池互斥锁
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>closed</span>       <span class=kt>bool</span> <span class=c1>// 连接池是否已关闭
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>active</span>       <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=nx>initOnce</span>     <span class=nx>sync</span><span class=p>.</span><span class=nx>Once</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ch</span>           <span class=kd>chan</span> <span class=kd>struct</span><span class=p>{}</span> <span class=c1>// channel 队列，大小等于 MaxActive，用于控制等待空闲连接。当有连接释放时，会向队列放入一个struct{}{}；当获取连接时，会向 ch 拿 struct{}{}，没有则阻塞
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>idle</span>         <span class=nx>idleList</span>    <span class=c1>// 是双向链表，组织和管理连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>waitCount</span>    <span class=kt>int64</span> <span class=c1>// 用于监控
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>waitDuration</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span> <span class=c1>// 用于监控
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>idleList</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>count</span>       <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=nx>front</span><span class=p>,</span> <span class=nx>back</span> <span class=o>*</span><span class=nx>poolConn</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>可以看到 redigo 管理连接的方式是维护了一个双向链表 <code>idleList</code>，并提供 get()、put() 用于取和归还连接，以下代码省略部分内容：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// GetContext 返回一个请求
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>Pool</span><span class=p>)</span> <span class=nf>GetContext</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>(</span><span class=nx>Conn</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 等到直到当前连接数小于 MaxActive，
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 由 Pool.ch 字段（大小为 MaxActive 的 channel）控制等待与放行
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>waited</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>waitVacantConn</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>errorConn</span><span class=p>{</span><span class=nx>err</span><span class=p>},</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=c1>// 从空闲链表首部开始遍历，不可用的连接关闭，并继续遍历，
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 返回第一个可用连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nx>front</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>pc</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nx>front</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nf>popFront</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=nx>p</span><span class=p>.</span><span class=nx>TestOnBorrow</span> <span class=o>==</span> <span class=kc>nil</span> <span class=o>||</span> <span class=nx>p</span><span class=p>.</span><span class=nf>TestOnBorrow</span><span class=p>(</span><span class=nx>pc</span><span class=p>.</span><span class=nx>c</span><span class=p>,</span> <span class=nx>pc</span><span class=p>.</span><span class=nx>t</span><span class=p>)</span> <span class=o>==</span> <span class=kc>nil</span><span class=p>)</span> <span class=o>&amp;&amp;</span>
+</span></span><span class=line><span class=cl>        <span class=p>(</span><span class=nx>p</span><span class=p>.</span><span class=nx>MaxConnLifetime</span> <span class=o>==</span> <span class=mi>0</span> <span class=o>||</span> <span class=nf>nowFunc</span><span class=p>().</span><span class=nf>Sub</span><span class=p>(</span><span class=nx>pc</span><span class=p>.</span><span class=nx>created</span><span class=p>)</span> <span class=p>&lt;</span> <span class=nx>p</span><span class=p>.</span><span class=nx>MaxConnLifetime</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=o>&amp;</span><span class=nx>activeConn</span><span class=p>{</span><span class=nx>p</span><span class=p>:</span> <span class=nx>p</span><span class=p>,</span> <span class=nx>pc</span><span class=p>:</span> <span class=nx>pc</span><span class=p>},</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=nx>pc</span><span class=p>.</span><span class=nx>c</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>active</span><span class=o>--</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=nx>p</span><span class=p>.</span><span class=nx>active</span><span class=o>++</span>
+</span></span><span class=line><span class=cl>    <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 如果仍找不到，则尝试通过 dial() 建立一个新 TCP 连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>c</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>dial</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>active</span><span class=o>--</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>p</span><span class=p>.</span><span class=nx>ch</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span> <span class=p>!</span><span class=nx>p</span><span class=p>.</span><span class=nx>closed</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>p</span><span class=p>.</span><span class=nx>ch</span> <span class=o>&lt;-</span> <span class=kd>struct</span><span class=p>{}{}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>errorConn</span><span class=p>{</span><span class=nx>err</span><span class=p>},</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>&amp;</span><span class=nx>activeConn</span><span class=p>{</span><span class=nx>p</span><span class=p>:</span> <span class=nx>p</span><span class=p>,</span> <span class=nx>pc</span><span class=p>:</span> <span class=o>&amp;</span><span class=nx>poolConn</span><span class=p>{</span><span class=nx>c</span><span class=p>:</span> <span class=nx>c</span><span class=p>,</span> <span class=nx>created</span><span class=p>:</span> <span class=nf>nowFunc</span><span class=p>()}},</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>通过阅读源码，我们可以发现，当高并发请求时，可以预估有两个阻塞点：</p><ol><li>大量请求阻塞在上面代码中的 <code>p.waitVacantConn(ctx)</code> 函数，因为连接池设置了上限；</li><li><code>p.TestOnBorrow()</code> 会测试连接的可用性，</li></ol><p>归还连接的函数 put() 将连接放回队首：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// put 归还一个请求
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>Pool</span><span class=p>)</span> <span class=nf>put</span><span class=p>(</span><span class=nx>pc</span> <span class=o>*</span><span class=nx>poolConn</span><span class=p>,</span> <span class=nx>forceClose</span> <span class=kt>bool</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=p>!</span><span class=nx>p</span><span class=p>.</span><span class=nx>closed</span> <span class=o>&amp;&amp;</span> <span class=p>!</span><span class=nx>forceClose</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>pc</span><span class=p>.</span><span class=nx>t</span> <span class=p>=</span> <span class=nf>nowFunc</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=c1>// 用完的连接放回队首
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nf>pushFront</span><span class=p>(</span><span class=nx>pc</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=c1>// 如果链表大小大于 MaxIdle，则弹出一个队尾的连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=k>if</span> <span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nx>count</span> <span class=p>&gt;</span> <span class=nx>p</span><span class=p>.</span><span class=nx>MaxIdle</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>pc</span> <span class=p>=</span> <span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nx>back</span>
+</span></span><span class=line><span class=cl>			<span class=nx>p</span><span class=p>.</span><span class=nx>idle</span><span class=p>.</span><span class=nf>popBack</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>pc</span> <span class=p>=</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// 如果有弹出的队尾连接，执行连接关闭
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>if</span> <span class=nx>pc</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>pc</span><span class=p>.</span><span class=nx>c</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>active</span><span class=o>--</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>p</span><span class=p>.</span><span class=nx>ch</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span> <span class=p>!</span><span class=nx>p</span><span class=p>.</span><span class=nx>closed</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>ch</span> <span class=o>&lt;-</span> <span class=kd>struct</span><span class=p>{}{}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=nx>p</span><span class=p>.</span><span class=nx>mu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=redis-v8-connpool>Redis v8 ConnPool</h2><p>Redis v8 库的设计我们主要看下它的连接池定义和 get() 方法实现。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>ConnPool</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>queue</span> <span class=kd>chan</span> <span class=kd>struct</span><span class=p>{}</span> <span class=c1>// channel 大小等于 PoolSize，空闲连接的数量
+</span></span></span><span class=line><span class=cl><span class=c1></span>    
+</span></span><span class=line><span class=cl>    <span class=nx>connsMu</span>   <span class=nx>sync</span><span class=p>.</span><span class=nx>Mutex</span>
+</span></span><span class=line><span class=cl>    <span class=nx>conns</span>     <span class=p>[]</span><span class=o>*</span><span class=nx>Conn</span>
+</span></span><span class=line><span class=cl>    <span class=nx>idleConns</span> <span class=p>[]</span><span class=o>*</span><span class=nx>Conn</span>
+</span></span><span class=line><span class=cl>    <span class=nx>poolSize</span>     <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=nx>idleConnsLen</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>get() 方法也是先有一个 waitTurn()，这和 redigo 的 waitVacantConn() 功能、实现一样。结束等待后，popIdle() 弹出一个可用连接，功能与 redigo 的 popFront() 函数相似，实现区别是前者是切片，后者是双向链表。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// Get returns existed connection from the pool or creates a new one.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>ConnPool</span><span class=p>)</span> <span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>Conn</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 如果连接数超过 PoolSize 则阻塞等待
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>waitTurn</span><span class=p>(</span><span class=nx>ctx</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>connsMu</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>cn</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>popIdle</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>connsMu</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=nx>cn</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>	<span class=nx>newcn</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>p</span><span class=p>.</span><span class=nf>newConn</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=kc>true</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nf>freeTurn</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>newcn</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>特别注意，redis v8 没有类似 TestOnBorrow 的支持。那如果这个连接不可用，是怎么处理的呢？其实，redis v8 在 <a href=https://github.com/go-redis/redis/blob/v8.11.5/redis.go#L306>process()</a> 里会尝试重试，默认最大重试 MaxRetries = 3 次。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=o>*</span><span class=nx>baseClient</span><span class=p>)</span> <span class=nf>process</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>cmd</span> <span class=nx>Cmder</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kd>var</span> <span class=nx>lastErr</span> <span class=kt>error</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>attempt</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>attempt</span> <span class=o>&lt;=</span> <span class=nx>c</span><span class=p>.</span><span class=nx>opt</span><span class=p>.</span><span class=nx>MaxRetries</span><span class=p>;</span> <span class=nx>attempt</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>attempt</span> <span class=o>:=</span> <span class=nx>attempt</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=nx>retry</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>c</span><span class=p>.</span><span class=nf>_process</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>cmd</span><span class=p>,</span> <span class=nx>attempt</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>err</span> <span class=o>==</span> <span class=kc>nil</span> <span class=o>||</span> <span class=p>!</span><span class=nx>retry</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=nx>lastErr</span> <span class=p>=</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>lastErr</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=o>*</span><span class=nx>baseClient</span><span class=p>)</span> <span class=nf>_process</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>cmd</span> <span class=nx>Cmder</span><span class=p>,</span> <span class=nx>attempt</span> <span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=kt>bool</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ... 省略命令执行
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>	<span class=nx>retry</span> <span class=o>:=</span> <span class=nf>shouldRetry</span><span class=p>(</span><span class=nx>err</span><span class=p>,</span> <span class=nx>atomic</span><span class=p>.</span><span class=nf>LoadUint32</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>retryTimeout</span><span class=p>)</span> <span class=o>==</span> <span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>retry</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>而是否应该重试，由 <a href=https://github.com/go-redis/redis/blob/v8.11.5/error.go#L28>shouldRetry()</a> 函数比较 err 类型来决定：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>shouldRetry</span><span class=p>(</span><span class=nx>err</span> <span class=kt>error</span><span class=p>,</span> <span class=nx>retryTimeout</span> <span class=kt>bool</span><span class=p>)</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>switch</span> <span class=nx>err</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>case</span> <span class=nx>io</span><span class=p>.</span><span class=nx>EOF</span><span class=p>,</span> <span class=nx>io</span><span class=p>.</span><span class=nx>ErrUnexpectedEOF</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=k>case</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Canceled</span><span class=p>,</span> <span class=nx>context</span><span class=p>.</span><span class=nx>DeadlineExceeded</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>v</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>err</span><span class=p>.(</span><span class=nx>timeoutError</span><span class=p>);</span> <span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>v</span><span class=p>.</span><span class=nf>Timeout</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>return</span> <span class=nx>retryTimeout</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=nx>s</span> <span class=o>:=</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>s</span> <span class=o>==</span> <span class=s>&#34;ERR max number of clients reached&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>	
+</span></span><span class=line><span class=cl>    <span class=c1>// ...省略部分case
+</span></span></span><span class=line><span class=cl><span class=c1></span>	
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>strings</span><span class=p>.</span><span class=nf>HasPrefix</span><span class=p>(</span><span class=nx>s</span><span class=p>,</span> <span class=s>&#34;TRYAGAIN &#34;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=总结>总结</h2><p>我们分析了 redigo 和 redis v8 连接池的工作机制和阻塞点，通过实验对比了两者性能差距，我们建议在开发中，应优先使用 redis v8 库。</p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
