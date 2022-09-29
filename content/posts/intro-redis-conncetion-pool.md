@@ -6,9 +6,9 @@ date: 2022-09-25T21:00:31+08:00
 Redis 连接池是维护 Redis 连接的缓存，当需要对 Redis 发出请求时可以复用连接，减少因为新 TCP 连接的建立带来的开销，从而提高性能。我们在最近的压测中发现，我们使用的第三方库 redigo 连接池，有时候，从连接池中拿到一个连接的耗时，比 redis 命令实际执行时间还长。通过本文的源码分析可以知，阻塞点有两个：
 
 1. 连接池大小 MaxActive 如果太小，会导致获取连接时，活跃连接达到上限，程序阻塞在 waitVacantConn() 函数；
-2. 连接池设置了 TestOnBorrow（如：通过 Redis PING 命令测试连接可用性），则获取连接时会有额外网络开销来执行一次 Redis PING。并且如果 PING 失败，redigo 会继续遍历空闲连接直到找到一个可用连接返回。
+2. 连接池设置了 TestOnBorrow（如：通过 Redis PING 命令测试连接可用性），则获取连接时，会有一次额外网络开销来执行 Redis PING。并且如果 PING 失败，redigo 会继续遍历空闲连接并再次 PING，直到找到一个可用连接返回。
 
-同事，我们还对比了，[redigo](https://github.com/gomodule/redigo) 和 [redis v8](https://github.com/go-redis/redis) 两个 go Redis 连接池库，发现 redigo 不设置 TestOnBorrow 的话，redis v8 和相比 redigo 性能相差不大。但生产环境一般会设置 TestOnBorrow，这样的话，redis v8 性能优势明显。而且，redis v8 社区活跃度高，功能也比 redigo 多，在今后的开发中，仍应优先使用 redis v8。
+同时，我们还对比了，[redigo](https://github.com/gomodule/redigo) 和 [redis v8](https://github.com/go-redis/redis) 两个 go Redis 连接池库，发现 redigo 不设置 TestOnBorrow，redis v8 和相比 redigo 性能相差不大。但生产环境一般会设置 TestOnBorrow，这样，redis v8 性能优势明显。而且，redis v8 社区活跃度高，功能也比 redigo 多，在今后的开发中，仍应优先使用 redis v8。
 
 本文介绍两个连接池的设计和源码分析，重点指出可能导致程序阻塞的瓶颈点。
 
@@ -32,7 +32,7 @@ Redis 连接池是维护 Redis 连接的缓存，当需要对 Redis 发出请求
 |HGETALL|8902 ns/op|8225 ns/op|
 |HMSET|13572 ns/op|13618 ns/op|
 
-分析压测数据，对比读写命令，redis v8 和 redigo 速度相差不大（单位：nanoseconds/operation。由于是并发测试，平均每次操作的时间会随并发度提高而下降，这里我们固定并发度 `SetParallelism(1000)`，具体 go benchmark 框架使用细节可看官方文档）。如果埋点分析，可进一步看到 redigo 耗时更多主要原因在于连接池的竞争，而实际 redis 命令执行耗时，两种库差别不大。
+分析压测数据，对比读写命令，redis v8 和 redigo 速度相差不大（单位：nanoseconds/operation。由于是并发测试，总体 ns/op 会随并发度提高而下降，这里我们固定并发度 `SetParallelism(1000)`，具体 go benchmark 框架使用细节可看官方文档）。
 
 ### 实验二：redigo 连接池设置 TestOnBorrow
 
@@ -48,7 +48,9 @@ TestOnBorrow: func(c redigo.Conn, t time.Time) error {
 |HGETALL|13117 ns/op|8225 ns/op|
 |HMSET|17140 ns/op|13618 ns/op|
 
-此时可以看到 redigo 比 redis v8 差很多。
+此时可以看到 redigo 比 redis v8 差很多。如果埋点分析，可进一步看到 redigo 耗时更多主要原因在于连接池的竞争，而实际 redis 命令执行耗时，两种库差别不大。
+
+## 压测代码示例
 
 使用 redis v8 测试 HGETALL 的代码：
 
@@ -93,7 +95,7 @@ PASS
 连接池需要设计包含以下功能：
 
 1. 连接池初始化：设置连接池和底层 TCP socket 的建立参数。除此之外，像 redis v8 还会提前预热一批空闲连接（MinIdleConns）；
-2. 连接的获取与释放：每次使用完连接，都需要归回到连接池。常见的连接池管理算法有 FIFO，先放入到池中的连接，先被取走。redis v8 通过切片实现，而 redigo 通过双向链表来实现。另外 redis v8 也支持 LIFO，且为默认算法；
+2. 连接的获取与释放：每次使用完连接，都需要归回到连接池。redis v8 通过双端队列来管理，而 redigo 通过双向链表来实现；
 3. 建立新连接：本质上一个 Redis 的连接是封装了 go 标准库中的 `net.Conn`。底层通过调用 `net.Dial("tcp", "127.0.0.1:6379")` 来建立一次新的且可以复用的 TCP 连接。Dial() 更底层会有 DNS 查询、通关 CGO 调用 C 代码和系统调用来完成 TCP 建立；
 4. 向连接读写 Redis 命令：Redis 有自己的协议，发送 Redis 命令即是向 `net.Conn` 连接 write/read 二进制数据。
 
@@ -108,10 +110,10 @@ type conn struct {
     mu      sync.Mutex
     pending int
     err     error
-    conn    net.Conn
+    conn    net.Conn // 底层封装 go 标准库中的 `net.Conn`
     
     // Read
-    readTimeout time.Duration
+    readTimeout time.Duration // 封装 Reader
     br          *bufio.Reader
     
     // Write
@@ -208,7 +210,7 @@ func (p *Pool) GetContext(ctx context.Context) (Conn, error) {
 }
 ```
 
-通过阅读源码，我们可以发现，当高并发请求时，可以预估有两个阻塞点：
+通过阅读源码，我们可以发现，当高并发请求时，可知有两个阻塞点：
 
 1. 大量请求阻塞在上面代码中的 `p.waitVacantConn(ctx)` 函数，因为连接池设置了上限；
 2. `p.TestOnBorrow()` 会测试连接的可用性，
@@ -293,7 +295,7 @@ func (p *ConnPool) Get(ctx context.Context) (*Conn, error) {
 }
 ```
 
-特别注意，redis v8 没有类似 TestOnBorrow 的支持。那如果这个连接不可用，是怎么处理的呢？其实，redis v8 在 [process()](https://github.com/go-redis/redis/blob/v8.11.5/redis.go#L306) 里会尝试重试，默认最大重试 MaxRetries = 3 次。
+特别注意，redis v8 没有类似 TestOnBorrow 的支持。那如果这个连接不可用，是怎么处理的呢？其实，redis v8 在 [process()](https://github.com/go-redis/redis/blob/v8.11.5/redis.go#L306) 里会尝试重试，默认最大重试 MaxRetries = 3 次，重试间隔可设置 MinRetryBackoff、MaxRetryBackoff。这与 redigo TestOnBorrow 先测试连接健康，再复用该连接的思路不同。redis v8 对于从连接池中拿到的连接不做检查，如果执行失败，再重试。
 
 ```go
 func (c *baseClient) process(ctx context.Context, cmd Cmder) error {
@@ -312,7 +314,14 @@ func (c *baseClient) process(ctx context.Context, cmd Cmder) error {
 }
 
 func (c *baseClient) _process(ctx context.Context, cmd Cmder, attempt int) (bool, error) {
-    // ... 省略命令执行
+	// 重试间隔
+    if attempt > 0 {
+        if err := internal.Sleep(ctx, c.retryBackoff(attempt)); err != nil {
+            return false, err
+        }
+    }
+
+    // ... 省略命令执行逻辑代码
 
 	retry := shouldRetry(err, atomic.LoadUint32(&retryTimeout) == 1)
     return retry, err
