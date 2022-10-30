@@ -12,7 +12,7 @@ draft: true
 
 - Goroutines：显示执行期间每个 Goroutine 运行阶段有多少个协程在运行。点击某一时间点，可以在下边信息栏看到详细说明。
 
-![](/images/go_pprof_trace_1.png)
+![](/images/go_pprof_trace_2.png)
 
 ![](/images/go_pprof_trace_3.png)
 
