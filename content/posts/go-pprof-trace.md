@@ -182,7 +182,7 @@ GCWaiting 顾名思义，他是指 goroutine 需要等待 GC 完成，堆内存�
 
 3. [gcParkAssist()](https://github.com/golang/go/blob/go1.16.10/src/runtime/mgcmark.go#L482)：goparkunlock 里就是我们在前面代码片段里展示的函数，这里会调用 goparkunlock 记录阻塞原因（waitReasonGCAssistWait）和 trace 事件（traceEvGoBlockGC）。goparkunlock 里还会继续调用 gopark 真正执行 goroutine 的挂起；
 
-4. [gopark()](https://github.com/golang/go/blob/go1.16.10/src/runtime/proc.go#L319)：gopark 调用了 mcall，传入了函数指针 park_m。park_m() 中先记录 trace 事件然后完成挂起。
+4. [gopark()](https://github.com/golang/go/blob/go1.16.10/src/runtime/proc.go#L319)：gopark 调用了 mcall，传入了函数指针 park_m。park_m() 中先记录 trace 事件然后完成挂起，完成 goroutine 的切换。
 
 ```go
 // park continuation on g0.
