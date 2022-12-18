@@ -318,6 +318,8 @@ $ kubectl logs -n demo-to -l web=server -c istio-proxy
 
 ![](/images/envoy-model-2.png)
 
+![](/images/envoy-model-3.png)
+
 一些其他 Istio 运维文章[^8]
 
 根据上面介绍的日志字段和流量五元组，可以知道，服务端Pod里的 server 程序，看到的请求过来的客户端源 IP 地址是 UPSTREAM_LOCAL_ADDRESS：127.0.0.6。
@@ -325,6 +327,28 @@ $ kubectl logs -n demo-to -l web=server -c istio-proxy
 ### 2. 查看 iptables 规则
 
 查看 iptables 配置，列出 NAT（网络地址转换）表的所有规则，因为在 Init 容器启动的时候选择给 istio-iptables.sh[^9] 传递的参数中指定将入站流量重定向到 Envoy 的模式为 “REDIRECT”，因此在 iptables 中将只有 NAT 表的规格配置，如果选择 TPROXY 还会有 mangle 表配置[^10]。
+
+查看容器 iptables，需要先进入容器 network namespace：
+
+```shell
+# 查容器ID
+$ kubectl get po -n demo-to simple-server-56b4d7b7d-9zkbm -ojson | jq '.status.containerStatuses[] | {name,containerID}'
+{
+  "name": "demo",
+  "containerID": "docker://cbd30c99c9f65430e32d2d0d46d4f0a56d261a4585d2a11385dc7ba994c9c948"
+}
+{
+  "name": "istio-proxy",
+  "containerID": "docker://a9cb6d70894c71102174cb8250a3de87d230e1586723938bf0a9ff1db7675969"
+}
+
+# 在容器所在节点，执行docker inspect
+$ docker inspect -f {{.State.Pid}} cbd30c99c9
+188902
+
+# 进入容器 network namespace 后，就可以执行 ipstables 了
+$ nsenter --target 188902 -n
+```
 
 iptables 命令使用说明[^11]，iptables 内置了5张表，分别是 raw、 nat、 mangle、 filter、 security。此处只需要关注 OUTPUT 链[^12]。
 
@@ -569,6 +593,208 @@ $ istioctl proxy-config cluster -n demo-to simple-server-86b499d4dd-bjrjz --fqdn
 
 解决办法很简单，只需要 Istio 的 interceptionMode 模式从默认 REDIRECT 切换为 TPROXY，具体可以参考阿里云的文档[^14]。
 
+```shell
+kubectl patch deployment -n demo-to simple-server  -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.istio.io/interceptionMode":"TPROXY"}}}}}'
+```
+
+查看修改后的 iptables（仍要先进入容器的 namespace，再执行 iptables 命令）：
+
+```shell
+$ iptables -t mangle -L -v
+
+# 可以看到，拦截的逻辑比较简单，仅仅改了 PREROUTING （关注进入的封包）链
+Chain PREROUTING (policy ACCEPT 31760 packets, 7988K bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+40639   14M ISTIO_INBOUND  tcp  --  any    any     anywhere             anywhere            
+12304 3649K CONNMARK   tcp  --  any    any     anywhere             anywhere             mark match 0x539 CONNMARK and 0x0
+
+Chain INPUT (policy ACCEPT 41248 packets, 14M bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain OUTPUT (policy ACCEPT 32921 packets, 13M bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+ 8202 2747K RETURN     tcp  --  any    lo      anywhere             anywhere             mark match 0x539
+    0     0 MARK       tcp  --  any    lo      anywhere            !localhost            owner UID match 1337 MARK set 0x53a
+    0     0 MARK       tcp  --  any    lo      anywhere            !localhost            owner GID match 1337 MARK set 0x53a
+ 4102  902K CONNMARK   tcp  --  any    any     anywhere             anywhere             connmark match  0x539 CONNMARK and 0x0
+
+Chain POSTROUTING (policy ACCEPT 32921 packets, 13M bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain ISTIO_DIVERT (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+ 9487 6308K MARK       all  --  any    any     anywhere             anywhere             MARK set 0x539
+ 9487 6308K ACCEPT     all  --  any    any     anywhere             anywhere            
+
+Chain ISTIO_INBOUND (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+12304 3649K RETURN     tcp  --  any    any     anywhere             anywhere             mark match 0x539
+    0     0 RETURN     tcp  --  lo     any     127.0.0.6            anywhere            
+ 6516 3339K RETURN     tcp  --  lo     any     anywhere             anywhere             mark match ! 0x53a
+ # 不拦截特殊端口 
+    0     0 RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:ssh
+    0     0 RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15090
+12331  898K RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15021
+    0     0 RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15020
+ # 如果SRC_IP:SRC_PORT:DST_IP:DST_PORT已经建立拦截，则打标记，接受封包
+ 9487 6308K ISTIO_DIVERT  tcp  --  any    any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+ # 否则，如果目的地不是127.0.0.1，则重定向给Envoy
+    1    60 ISTIO_TPROXY  tcp  --  any    any     anywhere             anywhere            
+
+# 对于目的地址不是127.0.0.1的封包，进行透明代理，发送给Envoy的15006监听器，给封包打标记1337（十六进制是0x539）
+Chain ISTIO_TPROXY (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    1    60 TPROXY     tcp  --  any    any     anywhere            !localhost            TPROXY redirect 0.0.0.0:15006 mark 0x539/0xffffffff
+```
+
+
+看完 TPROXY1 修改的 mangle，再看下 nat：
+
+```shell
+$ iptables -t nat  -L -v
+
+Chain PREROUTING (policy ACCEPT 2842 packets, 171K bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain INPUT (policy ACCEPT 2842 packets, 171K bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain OUTPUT (policy ACCEPT 294 packets, 25636 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   25  1500 ISTIO_OUTPUT  tcp  --  any    any     anywhere             anywhere            
+
+Chain POSTROUTING (policy ACCEPT 294 packets, 25636 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain ISTIO_INBOUND (0 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15008
+
+Chain ISTIO_IN_REDIRECT (2 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 REDIRECT   tcp  --  any    any     anywhere             anywhere             redir ports 15006
+
+Chain ISTIO_OUTPUT (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 RETURN     all  --  any    lo      127.0.0.6            anywhere            
+    0     0 ISTIO_IN_REDIRECT  all  --  any    lo      anywhere            !localhost            owner UID match 1337
+   13   780 RETURN     all  --  any    lo      anywhere             anywhere             ! owner UID match 1337
+    0     0 RETURN     all  --  any    any     anywhere             anywhere             owner UID match 1337
+# 根据用户不同决定行为，如果GID为1337，意味着是Envoy进程发起的封包，否则是其它进程发起的
+# 对于将从lo发出的封包，如果用户是Envoy，目的地址非127.0.0.1的，则重定向到入站虚拟监听器15006
+    0     0 ISTIO_IN_REDIRECT  all  --  any    lo      anywhere            !localhost            owner GID match 1337
+    0     0 RETURN     all  --  any    lo      anywhere             anywhere             ! owner GID match 1337
+   12   720 RETURN     all  --  any    any     anywhere             anywhere             owner GID match 1337
+    0     0 RETURN     all  --  any    any     anywhere             localhost           
+    0     0 ISTIO_REDIRECT  all  --  any    any     anywhere             anywhere            
+
+# 看样子15006是需要将所有入站流量重定向到的端口，而在TPROXY中将入站流量都重定向到15001
+Chain ISTIO_REDIRECT (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 REDIRECT   tcp  --  any    any     anywhere             anywhere             redir ports 15001
+```
+
+继续看 15001 端口的 listener：
+
+```shell
+$ istioctl proxy-config listeners -n demo-to simple-server-56b4d7b7d-9zkbm --port 15001
+
+ADDRESS PORT  MATCH         DESTINATION
+0.0.0.0 15001 ALL           PassthroughCluster
+0.0.0.0 15001 Addr: *:15001 Non-HTTP/Non-TCP
+```
+
+```shell
+istioctl proxy-config listeners -n demo-to simple-server-56b4d7b7d-9zkbm --port 15001 -ojson
+
+[
+    {
+        "name": "virtualOutbound",
+        "address": {
+            "socketAddress": {
+                "address": "0.0.0.0",
+                "portValue": 15001
+            }
+        },
+        "filterChains": [
+            {
+              // ...省略
+            },
+            {
+                "filters": [
+                    {
+                        "name": "envoy.filters.network.tcp_proxy",
+                        "typedConfig": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
+                            "statPrefix": "PassthroughCluster",
+                            "cluster": "PassthroughCluster",
+                        }
+                    }
+                ],
+                "name": "virtualOutbound-catchall-tcp"
+            }
+        ],
+        "useOriginalDst": true,
+        "transparent": true,
+        "trafficDirection": "OUTBOUND",
+    }
+]
+```
+
+继续看 envoy.filters.network.tcp_proxy 对应的 PassthroughCluster Cluster：
+
+```shell
+$ istioctl proxy-config cluster -n demo-to simple-server-56b4d7b7d-9zkbm  --fqdn "PassthroughCluster"  -ojson
+
+[
+  {
+    "name": "PassthroughCluster",
+    "type": "ORIGINAL_DST",
+    "connectTimeout": "10s",
+    "lbPolicy": "CLUSTER_PROVIDED",
+    "circuitBreakers": {
+      "thresholds": [
+        {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295,
+          "trackRemaining": true
+        }
+      ]
+    },
+    "typedExtensionProtocolOptions": {
+      "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+        "useDownstreamProtocolConfig": {
+          "httpProtocolOptions": {},
+          "http2ProtocolOptions": {
+            "maxConcurrentStreams": 1073741824
+          }
+        }
+      }
+    },
+    "filters": [
+      {
+        "name": "istio.metadata_exchange",
+        "typedConfig": {
+          "@type": "type.googleapis.com/udpa.type.v1.TypedStruct",
+          "typeUrl": "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+          "value": {
+            "protocol": "istio-peer-exchange"
+          }
+        }
+      }
+    ]
+  }
+]
+```
+
+这里可以看到，没有修改源 IP。
+
 ## 参考资料
 
 [^1]: [在服务网格环境下如何保持服务访问时的客户端源IP](https://help.aliyun.com/document_detail/464794.html)
@@ -585,3 +811,5 @@ $ istioctl proxy-config cluster -n demo-to simple-server-86b499d4dd-bjrjz --fqdn
 [^12]: [Linux - iptables](https://dong-dada.github.io/linux/2021/05/06/iptables.html)
 [^13]: [Istio 中的 Sidecar 注入、透明流量劫持及流量路由过程详解](https://jimmysong.io/blog/sidecar-injection-iptables-and-traffic-routing/)
 [^14]: [在服务网格环境下如何保持服务访问时的客户端源IP](https://help.aliyun.com/document_detail/464794.html)
+[^15]: [Istio Sidecar 流量拦截机制分析](https://blog.yingchi.io/posts/2020/6/istio-sidecar-proxy.html)
+[^16]: [Istio中的透明代理问题](https://blog.gmem.cc/istio-tproxy)
