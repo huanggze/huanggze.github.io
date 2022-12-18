@@ -1,0 +1,762 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="Istio 客户端源 IP 保持"><meta property="og:description" content="问题背景 发现默认部署的 Istio 服务网格下，服务端收到请求 IP 源地址是 127.0.0.6，而不是请求方的真实 IP 地址。
+环境复现 环境复现总共需要准备的内容清单：
+服务端 Pod：打印客户端 IP 地址； 客户端 Pod：向服务端发送请求； K8s 环境：使用阿里云 ACK 部署 K8s 环境； Istio：安装 Istio。 各部署相关的注意事项见下面分小节的内容。
+1. 服务端 demo 在 18080 端口接收客户端请求，解析IP地址的方式设置为两种：读取 XFF 首部，或 request 的 RemoteAddr 字段。
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 package main import ( &#34;fmt&#34; &#34;net/http&#34; ) func handle(w http.ResponseWriter, r *http."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/capture-packet-istio/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-12-14T21:56:37+08:00"><meta property="article:modified_time" content="2022-12-14T21:56:37+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Istio 客户端源 IP 保持"><meta name=twitter:description content="问题背景 发现默认部署的 Istio 服务网格下，服务端收到请求 IP 源地址是 127.0.0.6，而不是请求方的真实 IP 地址。
+环境复现 环境复现总共需要准备的内容清单：
+服务端 Pod：打印客户端 IP 地址； 客户端 Pod：向服务端发送请求； K8s 环境：使用阿里云 ACK 部署 K8s 环境； Istio：安装 Istio。 各部署相关的注意事项见下面分小节的内容。
+1. 服务端 demo 在 18080 端口接收客户端请求，解析IP地址的方式设置为两种：读取 XFF 首部，或 request 的 RemoteAddr 字段。
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 package main import ( &#34;fmt&#34; &#34;net/http&#34; ) func handle(w http.ResponseWriter, r *http."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - Istio 客户端源 IP 保持</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1671354978.css><script defer type=text/javascript src=/minima.1671354978.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#问题背景>问题背景</a></li><li><a href=#环境复现>环境复现</a><ul><li><a href=#1-服务端-demo>1. 服务端 demo</a></li><li><a href=#2-客户端-demo>2. 客户端 demo</a></li><li><a href=#3-准备-k8s-环境>3. 准备 K8s 环境</a></li><li><a href=#4-安装-istio>4. 安装 Istio</a></li><li><a href=#5-复现>5. 复现</a></li></ul></li><li><a href=#排查步骤>排查步骤</a><ul><li><a href=#1-查看-istio-proxy-日志>1. 查看 istio-proxy 日志</a></li><li><a href=#2-查看-iptables-规则>2. 查看 iptables 规则</a></li><li><a href=#3-istio-config-查看-envoy-配置>3. istio-config 查看 Envoy 配置</a></li></ul></li><li><a href=#解决办法>解决办法</a></li><li><a href=#参考资料>参考资料</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">Istio 客户端源 IP 保持</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Dec 14, 2022</div></div><main><p></p><article class=md><h2 id=问题背景>问题背景</h2><p>发现默认部署的 Istio 服务网格下，服务端收到请求 IP 源地址是 127.0.0.6，而不是请求方的真实 IP 地址。</p><h2 id=环境复现>环境复现</h2><p>环境复现总共需要准备的内容清单：</p><ul><li>服务端 Pod：打印客户端 IP 地址；</li><li>客户端 Pod：向服务端发送请求；</li><li>K8s 环境：使用阿里云 ACK 部署 K8s 环境；</li><li>Istio：安装 Istio。</li></ul><p>各部署相关的注意事项见下面分小节的内容。</p><h3 id=1-服务端-demo>1. 服务端 demo</h3><p>在 18080 端口接收客户端请求，解析IP地址的方式设置为两种：读取 XFF 首部，或 request 的 RemoteAddr 字段。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>	<span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=s>&#34;net/http&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>handle</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>r</span> <span class=o>*</span><span class=nx>http</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 打印客户端IP
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;X-Forwarded-For=%s, RemoteAddr=%s\n&#34;</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>Header</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=s>&#34;X-Forwarded-For&#34;</span><span class=p>),</span> <span class=nx>r</span><span class=p>.</span><span class=nx>RemoteAddr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>w</span><span class=p>.</span><span class=nf>Write</span><span class=p>([]</span><span class=nb>byte</span><span class=p>(</span><span class=s>`{&#34;code&#34;: 0, &#34;status&#34;: &#34;fail&#34;, &#34;user&#34;: {&#34;id&#34;: &#34;test_common&#34;}}`</span><span class=p>))</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>http</span><span class=p>.</span><span class=nf>HandleFunc</span><span class=p>(</span><span class=s>&#34;/common/sauth&#34;</span><span class=p>,</span> <span class=nx>handle</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>err</span> <span class=o>:=</span> <span class=nx>http</span><span class=p>.</span><span class=nf>ListenAndServe</span><span class=p>(</span><span class=s>&#34;:18080&#34;</span><span class=p>,</span> <span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>镜像构建 Dockerfile 和命令：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>docker buildx build --platform<span class=o>=</span>linux/amd64 -t vasth/simple-server .
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=k>FROM</span><span class=s> golang:alpine</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> mkdir /app<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . /app<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=s> /app</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> go build -o main .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;/app/main&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>K8s 部署 YAML：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># server.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>simple-server</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>demo-to</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>web</span><span class=p>:</span><span class=w> </span><span class=l>server</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>web</span><span class=p>:</span><span class=w> </span><span class=l>server</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>vasth/simple-server</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>imagePullPolicy</span><span class=p>:</span><span class=w> </span><span class=l>Always</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>simple-server-svc</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>demo-to</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>web</span><span class=p>:</span><span class=w> </span><span class=l>server</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>18080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>targetPort</span><span class=p>:</span><span class=w> </span><span class=m>18080</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=2-客户端-demo>2. 客户端 demo</h3><p>向服务端发送 GET 请求</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>   <span class=s>&#34;io&#34;</span>
+</span></span><span class=line><span class=cl>   <span class=s>&#34;net/http&#34;</span>
+</span></span><span class=line><span class=cl>   <span class=s>&#34;time&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>time</span><span class=p>.</span><span class=nf>Sleep</span><span class=p>(</span><span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=nx>resp</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>http</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=s>&#34;http://simple-server-svc.demo-to:18080/common/sauth&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>         <span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;Get err: %v\n&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>         <span class=k>continue</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=nx>raw</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>io</span><span class=p>.</span><span class=nf>ReadAll</span><span class=p>(</span><span class=nx>resp</span><span class=p>.</span><span class=nx>Body</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>         <span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;ReadAll err: %v\n&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>         <span class=k>continue</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nb>string</span><span class=p>(</span><span class=nx>raw</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=nx>resp</span><span class=p>.</span><span class=nx>Body</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>   <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>Dockerfile和服务端一样，K8s 部署 YAML 如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># client.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>simple-client</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>demo-from</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>web</span><span class=p>:</span><span class=w> </span><span class=l>client</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>web</span><span class=p>:</span><span class=w> </span><span class=l>client</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>demo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>vasth/simple-client</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>imagePullPolicy</span><span class=p>:</span><span class=w> </span><span class=l>Always</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=3-准备-k8s-环境>3. 准备 K8s 环境</h3><p>在阿里云 ACK 容器服务下，创建一个集群。注意，选择的节点操作系统要是 Alibaba Cloud Linux 2，不能用 CentOS，有内核问题。 我的测试环境是部署了两个工作节点。</p><h3 id=4-安装-istio>4. 安装 Istio</h3><p>Istio 1.11.3 版本文档：<a href=https://istio.io/v1.11/docs/setup/getting-started>https://istio.io/v1.11/docs/setup/getting-started</a></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=c1># 下载 1.11.3 版本的 istio</span>
+</span></span><span class=line><span class=cl>curl -O https://ghproxy.com/https://github.com/istio/istio/releases/download/1.11.3/istioctl-1.11.3-linux-amd64.tar.gz
+</span></span><span class=line><span class=cl>tar zxvf istioctl-1.11.3-linux-amd64.tar.gz
+</span></span><span class=line><span class=cl>mv istioctl /usr/local/bin/
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 安装 istio</span>
+</span></span><span class=line><span class=cl>istioctl install --set <span class=nv>profile</span><span class=o>=</span>demo -y
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 准备 namespace</span>
+</span></span><span class=line><span class=cl>kubectl create ns demo-from
+</span></span><span class=line><span class=cl>kubectl create ns demo-to
+</span></span><span class=line><span class=cl>kubectl label namespace demo-from istio-injection<span class=o>=</span>enabled
+</span></span><span class=line><span class=cl>kubectl label namespace demo-to istio-injection<span class=o>=</span>enabled
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 部署客户端、服务端Pod</span>
+</span></span><span class=line><span class=cl>kubectl apply -f server.yaml
+</span></span><span class=line><span class=cl>kubectl apply -f client.yaml
+</span></span></code></pre></td></tr></table></div></div><h3 id=5-复现>5. 复现</h3><p>现在，可以打印服务端日志，看到打印的客户端IP是127.0.0.6。本文就是介绍：</p><p>1.为什么不是打印客户端的 Pod IP？
+2. 如何修复？
+3. 为什么是 127.0.0.6，而不是其他地址？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ kubectl logs -n demo-to -l <span class=nv>web</span><span class=o>=</span>server
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span><span class=line><span class=cl>X-Forwarded-For<span class=o>=</span>, <span class=nv>RemoteAddr</span><span class=o>=</span>127.0.0.6:44213
+</span></span></code></pre></td></tr></table></div></div><p>而客户端的实际IP地址是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ kubectl get po -n demo-from -owide
+</span></span><span class=line><span class=cl>NAME                             READY   STATUS    RESTARTS   AGE     IP           NODE
+</span></span><span class=line><span class=cl>simple-client-54f4f5cccb-mzjkw   2/2     Running   <span class=m>0</span>          7m32s   10.20.0.78   cn-xxx.192.168.0.127
+</span></span></code></pre></td></tr></table></div></div><p>服务端 Pod IP 和 Service IP 分别是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ kubectl get po -n demo-to -owide
+</span></span><span class=line><span class=cl>NAME                             READY   STATUS    RESTARTS   AGE     IP           NODE
+</span></span><span class=line><span class=cl>simple-server-86b499d4dd-zd4pl   2/2     Running   <span class=m>0</span>          4h37m   10.20.0.77   cn-xxx.192.168.0.127
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>$ kubectl get svc -n demo-to
+</span></span><span class=line><span class=cl>NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT<span class=o>(</span>S<span class=o>)</span>     AGE
+</span></span><span class=line><span class=cl>simple-server-svc   ClusterIP   172.16.234.188   &lt;none&gt;        18080/TCP   5h44m
+</span></span></code></pre></td></tr></table></div></div><h2 id=排查步骤>排查步骤</h2><p>我们分别做以下排查步骤：</p><ol><li>查看服务端 Pod 的 istio-proxy 容器日志，确定容器看到 127.0.0.6 是来自哪个节点；</li><li>查看服务端 Pod 的 iptables 规则，确定 Pod 流量转发规则；</li><li>查看服务端 Pod 的 Envoy 配置规则，确定客户端 IP 被篡改的原因和实现规则。</li></ol><h3 id=1-查看-istio-proxy-日志>1. 查看 istio-proxy 日志</h3><p>istio-proxy 日志实际是 Envoy 访问日志<sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>，打印 Envoy 访问日志可以详细看到 Envoy 如何做代理转发的。如下打印服务端的 Envoy 日志：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ kubectl logs -n demo-to -l <span class=nv>web</span><span class=o>=</span>server -c istio-proxy
+</span></span><span class=line><span class=cl><span class=o>[</span>2022-12-17T09:30:39.883Z<span class=o>]</span> <span class=s2>&#34;GET /common/sauth HTTP/1.1&#34;</span> <span class=m>200</span> - via_upstream - <span class=s2>&#34;-&#34;</span> <span class=m>0</span> <span class=m>60</span> <span class=m>0</span> <span class=m>0</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;Go-http-client/1.1&#34;</span> <span class=s2>&#34;57dd8171-f8e0-9ffc-bfc4-cdf4d9f5ee0f&#34;</span> <span class=s2>&#34;simple-server-svc.demo-to:18080&#34;</span> <span class=s2>&#34;10.20.0.77:18080&#34;</span> inbound<span class=p>|</span>18080<span class=o>||</span> 127.0.0.6:44213 10.20.0.77:18080 10.20.0.78:33204 outbound_.18080_._.simple-server-svc.demo-to.svc.cluster.local default
+</span></span><span class=line><span class=cl><span class=o>[</span>2022-12-17T09:30:40.885Z<span class=o>]</span> <span class=s2>&#34;GET /common/sauth HTTP/1.1&#34;</span> <span class=m>200</span> - via_upstream - <span class=s2>&#34;-&#34;</span> <span class=m>0</span> <span class=m>60</span> <span class=m>0</span> <span class=m>0</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;Go-http-client/1.1&#34;</span> <span class=s2>&#34;84c216fd-6fe1-9986-b7ce-e259cdf61325&#34;</span> <span class=s2>&#34;simple-server-svc.demo-to:18080&#34;</span> <span class=s2>&#34;10.20.0.77:18080&#34;</span> inbound<span class=p>|</span>18080<span class=o>||</span> 127.0.0.6:44213 10.20.0.77:18080 10.20.0.78:33204 outbound_.18080_._.simple-server-svc.demo-to.svc.cluster.local default
+</span></span><span class=line><span class=cl><span class=o>[</span>2022-12-17T09:30:41.888Z<span class=o>]</span> <span class=s2>&#34;GET /common/sauth HTTP/1.1&#34;</span> <span class=m>200</span> - via_upstream - <span class=s2>&#34;-&#34;</span> <span class=m>0</span> <span class=m>60</span> <span class=m>0</span> <span class=m>0</span> <span class=s2>&#34;-&#34;</span> <span class=s2>&#34;Go-http-client/1.1&#34;</span> <span class=s2>&#34;a67101af-e469-91ab-99b0-61bb5abfa108&#34;</span> <span class=s2>&#34;simple-server-svc.demo-to:18080&#34;</span> <span class=s2>&#34;10.20.0.77:18080&#34;</span> inbound<span class=p>|</span>18080<span class=o>||</span> 127.0.0.6:44213 10.20.0.77:18080 10.20.0.78:33204 outbound_.18080_._.simple-server-svc.demo-to.svc.cluster.local default
+</span></span></code></pre></td></tr></table></div></div><p>各字段解析可参考 Envoy 文档<sup id=fnref:2><a href=#fn:2 class=footnote-ref role=doc-noteref>2</a></sup>，以及其他博客<sup id=fnref:3><a href=#fn:3 class=footnote-ref role=doc-noteref>3</a></sup>。在 Envoy accesslog 日志中，如果字段实际值是空，则用 &ldquo;-&rdquo; 字符串表示。</p><p>特定日志字段格式的说明：</p><p><code>%RESPONSE_CODE_DETAILS%</code>：响应体状态码详细说明<sup id=fnref:4><a href=#fn:4 class=footnote-ref role=doc-noteref>4</a></sup>。</p><blockquote><ul><li>via_upstream：The response code was set by the upstream.</li><li>upstream_response_timeout: The upstream response timed out.</li><li>duration_timeout: The max connection duration was exceeded.</li></ul></blockquote><p><code>%REQ(X?Y):Z%</code>：如 <code>%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%</code>，拿响应报文首部 X-ENVOY-UPSTREAM-SERVICE-TIME 的值。</p><blockquote><p>HTTP:</p><ul><li>从 HTTP Header 中拿到 X 首部的值，如果没有则拿首部 Y。Z 代表截取的字符长度。如果首部都不存在，则打印"-"。</li></ul><p>TCP/UDP:</p><ul><li>未实现默认"-"。</li></ul></blockquote><p><code>%UPSTREAM_CLUSTER%</code>：上游服务的地址，格式如下<sup id=fnref:5><a href=#fn:5 class=footnote-ref role=doc-noteref>5</a></sup>：</p><blockquote><p>入流量：inbound|portNumber|portName|Hostname
+出流量：inbound|portNumber|portName|Hostname</p><p>示例：</p><ol><li>inbound|9080|http|productpage.istio-bookinfo-1-68819.svc.cluster.local</li><li>outbound|8000||httpbin.foo.svc.cluster.local</li></ol></blockquote><p>格式化处理之后的日志示例如下，以服务端Pod的代理容器日志为例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=o>{</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;start_time&#34;</span>: <span class=s2>&#34;2022-12-17T09:30:41.888Z&#34;</span>, // 请求开始时间
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;method&#34;</span>: <span class=s2>&#34;GET&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;path&#34;</span>: <span class=s2>&#34;/common/sauth&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;protocol&#34;</span>: <span class=s2>&#34;HTTP/1.1&#34;</span>, // 上游服务的协议，如果是 HTTP 则可选值分HTTP版本；如果是 TCP/UDP，则为空。
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;response_code&#34;</span>: 200, // HTTP响应状态码
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;response_flags&#34;</span>: <span class=s2>&#34;-&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;response_code_details&#34;</span>: <span class=s2>&#34;via_upstream&#34;</span>, // HTTP响应状态码详情，比如：谁设置的此值
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;connection_termination_details&#34;</span>: <span class=s2>&#34;-&#34;</span>, // Envoy 终止请求的L4层原因
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;upstream_transport_failure_reason&#34;</span>: <span class=s2>&#34;-&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;bytes_received&#34;</span>: 0,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;bytes_send&#34;</span>: 60,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;duration&#34;</span>: 0, // 从请求开始时间到最后一个字节发出的时间跨度
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;x-envoy-upstream-service-time&#34;</span>: 0, // 响应报文中 X-ENVOY-UPSTREAM-SERVICE-TIME 首部的值
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;x-forwarded-for&#34;</span>: <span class=s2>&#34;-&#34;</span>, // 请求报文中 X-FORWARDED-FOR 首部的值
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;user-agent&#34;</span>: <span class=s2>&#34;Go-http-client/1.1&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;x-request-id&#34;</span>: <span class=s2>&#34;a67101af-e469-91ab-99b0-61bb5abfa108&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;authority&#34;</span>: <span class=s2>&#34;simple-server-svc.demo-to:18080&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;upstream_host&#34;</span>: <span class=s2>&#34;10.20.0.77:18080&#34;</span>, // Envoy Sidecar 要访问的服务地址。这里就是Pod里的istio-proxy要访问的同Pod里业务容器
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;upstream_cluster&#34;</span>: <span class=s2>&#34;inbound|18080||&#34;</span>, // 上游服务地址
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;upstream_local_address&#34;</span>: <span class=s2>&#34;127.0.0.6:44213&#34;</span>, // 服务端 Envoy 连接服务端时，Envoy 的本地地址（此时服务端获得的 IP 地址是这个）
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;downstream_local_address&#34;</span>: <span class=s2>&#34;10.20.0.77:18080&#34;</span>, // 下游连接中，当前 Envoy 的本地地址。客户端要连的地址
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;downstream_remote_address&#34;</span>: <span class=s2>&#34;10.20.0.78:33204&#34;</span>, // 下游连接中远端地址。对于 Inbound 流量，此值是「下游 pod-ip : 随机端口」
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;requested_server_name&#34;</span>: <span class=s2>&#34;outbound_.18080_._.simple-server-svc.demo-to.svc.cluster.local&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;route_name&#34;</span>:<span class=s2>&#34;default&#34;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>流量五元组</strong></p><p>流量五元组信息是 Envoy 日志里最重要的部分<sup id=fnref1:5><a href=#fn:5 class=footnote-ref role=doc-noteref>5</a></sup><sup id=fnref:6><a href=#fn:6 class=footnote-ref role=doc-noteref>6</a></sup>，包含：</p><ul><li><strong>UPSTREAM_CLUSTER</strong>：Envoy 计算出符合条件的转发目的主机集合，这个集合叫做 UPSTREAM_CLUSTER, 并根据负载均衡规则，从这个集合中选择一个 host 作为流量转发的接收端点；</li><li><strong>UPSTREAM_HOST</strong>：上面选择的这个端点就叫 UPSTREAM_HOST；</li><li><strong>UPSTREAM_LOCAL_ADDRESS</strong>：上游连接中，当前 Envoy 的本地地址，此值是「当前 pod-ip : 随机端口」；</li><li><strong>DOWNSTREAM_LOCAL_ADDRESS</strong>：下游连接中，当前 Envoy 的本地地址。即，下游请求方要连接的地址；</li><li><strong>DOWNSTREAM_REMOTE_ADDRESS</strong>：下游连接中远端地址。即，下游请求方的地址。</li></ul><p><img src=/images/envoy-model-1.png alt></p><p><img src=/images/envoy-model-2.png alt></p><p>一些其他 Istio 运维文章<sup id=fnref:7><a href=#fn:7 class=footnote-ref role=doc-noteref>7</a></sup></p><p>根据上面介绍的日志字段和流量五元组，可以知道，服务端Pod里的 server 程序，看到的请求过来的客户端源 IP 地址是 UPSTREAM_LOCAL_ADDRESS：127.0.0.6。</p><h3 id=2-查看-iptables-规则>2. 查看 iptables 规则</h3><p>查看 iptables 配置，列出 NAT（网络地址转换）表的所有规则，因为在 Init 容器启动的时候选择给 istio-iptables.sh<sup id=fnref:8><a href=#fn:8 class=footnote-ref role=doc-noteref>8</a></sup> 传递的参数中指定将入站流量重定向到 Envoy 的模式为 “REDIRECT”，因此在 iptables 中将只有 NAT 表的规格配置，如果选择 TPROXY 还会有 mangle 表配置<sup id=fnref:9><a href=#fn:9 class=footnote-ref role=doc-noteref>9</a></sup>。</p><p>iptables 命令使用说明<sup id=fnref:10><a href=#fn:10 class=footnote-ref role=doc-noteref>10</a></sup>，iptables 内置了5张表，分别是 raw、 nat、 mangle、 filter、 security。此处只需要关注 OUTPUT 链<sup id=fnref:11><a href=#fn:11 class=footnote-ref role=doc-noteref>11</a></sup>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=c1># 查看 NAT 表中规则配置的详细信息</span>
+</span></span><span class=line><span class=cl>$ iptables -t nat -L -v
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># PREROUTING 链：用于目标地址转换（DNAT），将所有入站 TCP 流量跳转到 ISTIO_INBOUND 链上</span>
+</span></span><span class=line><span class=cl>Chain PREROUTING <span class=o>(</span>policy ACCEPT <span class=m>11627</span> packets, 698K bytes<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=c1># pkts 多少个报文数量匹配该规则，bytes 报文大小，target 动作，port 协议，opt 选项，in/out: 入、出口网卡，source/destination: 源、目标ip/ip段</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl><span class=m>11627</span>  698K ISTIO_INBOUND  tcp  --  any    any     anywhere             anywhere            
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># INPUT 链：处理输入数据包，目前没有配置规则</span>
+</span></span><span class=line><span class=cl>Chain INPUT <span class=o>(</span>policy ACCEPT <span class=m>11627</span> packets, 698K bytes<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># OUTPUT 链：将所有出站数据包跳转到 ISTIO_OUTPUT 链上</span>
+</span></span><span class=line><span class=cl>Chain OUTPUT <span class=o>(</span>policy ACCEPT <span class=m>1059</span> packets, <span class=m>96140</span> bytes<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>   <span class=m>44</span>  <span class=m>2640</span> ISTIO_OUTPUT  tcp  --  any    any     anywhere             anywhere            
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># POSTROUTING 链：所有数据包流出网卡时都要先进入POSTROUTING 链，内核根据数据包目的地判断是否需要转发出去，我们看到此处未做任何处理</span>
+</span></span><span class=line><span class=cl>Chain POSTROUTING <span class=o>(</span>policy ACCEPT <span class=m>1060</span> packets, <span class=m>96200</span> bytes<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># ISTIO_INBOUND 链：将所有入站流量重定向到 ISTIO_IN_REDIRECT 链上</span>
+</span></span><span class=line><span class=cl><span class=c1># 但除了 15008、22、15090、15021、15020 端口</span>
+</span></span><span class=line><span class=cl>Chain ISTIO_INBOUND <span class=o>(</span><span class=m>1</span> references<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15008
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:ssh
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15090
+</span></span><span class=line><span class=cl><span class=m>11627</span>  698K RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15021
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     tcp  --  any    any     anywhere             anywhere             tcp dpt:15020
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> ISTIO_IN_REDIRECT  tcp  --  any    any     anywhere             anywhere            
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># ISTIO_IN_REDIRECT 链：将所有的入站流量跳转到本地的 15006 端口，至此成功的拦截了流量到 Envoy </span>
+</span></span><span class=line><span class=cl>Chain ISTIO_IN_REDIRECT <span class=o>(</span><span class=m>3</span> references<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> REDIRECT   tcp  --  any    any     anywhere             anywhere             redir ports <span class=m>15006</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># ISTIO_OUTPUT 链：选择需要重定向到 Envoy（即本地） 的出站流量，所有非 localhost 的流量全部转发到 ISTIO_REDIRECT。为了避免流量在该 Pod 中无限循环，所有到 istio-proxy 用户空间的流量都返回到它的调用点中的下一条规则，本例中即 OUTPUT 链，因为跳出 ISTIO_OUTPUT 规则之后就进入下一条链 POSTROUTING。如果目的地非 localhost 就跳转到 ISTIO_REDIRECT；如果流量是来自 istio-proxy 用户空间的，那么就跳出该链，返回它的调用链继续执行下一条规则（OUTPUT 的下一条规则，无需对流量进行处理）；所有的非 istio-proxy 用户空间的目的地是 localhost 的流量就跳转到 ISTIO_REDIRECT</span>
+</span></span><span class=line><span class=cl>Chain ISTIO_OUTPUT <span class=o>(</span><span class=m>1</span> references<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     all  --  any    lo      127.0.0.6            anywhere       
+</span></span><span class=line><span class=cl><span class=c1># 这里 1337 是 istio-proxy 的 Group ID（runAsGroup: 1337）</span>
+</span></span><span class=line><span class=cl><span class=c1># 要识别出哪些流量是由 envoy 发出的，这里使用了 UID 来标记，我们可以通过配置让 envoy 总是由特定的 UID 启动，这样就能够在 iptables 中通过 owner UID match 来过滤出由 envoy 发出的流量[^12]。     </span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> ISTIO_IN_REDIRECT  all  --  any    lo      anywhere            !localhost            owner UID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     all  --  any    lo      anywhere             anywhere             ! owner UID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>   <span class=m>43</span>  <span class=m>2580</span> RETURN     all  --  any    any     anywhere             anywhere             owner UID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> ISTIO_IN_REDIRECT  all  --  any    lo      anywhere            !localhost            owner GID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     all  --  any    lo      anywhere             anywhere             ! owner GID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     all  --  any    any     anywhere             anywhere             owner GID match <span class=m>1337</span>
+</span></span><span class=line><span class=cl>    <span class=m>0</span>     <span class=m>0</span> RETURN     all  --  any    any     anywhere             localhost           
+</span></span><span class=line><span class=cl>    <span class=m>1</span>    <span class=m>60</span> ISTIO_REDIRECT  all  --  any    any     anywhere             anywhere            
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># ISTIO_REDIRECT 链：将所有流量重定向到 Envoy（即本地） 的 15001 端口</span>
+</span></span><span class=line><span class=cl>Chain ISTIO_REDIRECT <span class=o>(</span><span class=m>1</span> references<span class=o>)</span>
+</span></span><span class=line><span class=cl> pkts bytes target     prot opt in     out     <span class=nb>source</span>               destination         
+</span></span><span class=line><span class=cl>    <span class=m>1</span>    <span class=m>60</span> REDIRECT   tcp  --  any    any     anywhere             anywhere             redir ports <span class=m>15001</span>
+</span></span></code></pre></td></tr></table></div></div><p>通过 iptables 配置，可以知道，发往服务端程序的请求，最终先被 Envoy 的 15006 端口接收；服务端返回的响应，先被 Envoy 的 15001 端口处理。这也会 istio-init 的如何初始化 iptables 一致<sup id=fnref1:9><a href=#fn:9 class=footnote-ref role=doc-noteref>9</a></sup>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ kubectl get po -n demo-to simple-server-86b499d4dd-bjrjz  -ojson <span class=p>|</span> jq .spec.initContainers<span class=o>[]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>{</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;istio-init&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;image&#34;</span>: <span class=s2>&#34;docker.io/istio/proxyv2:1.11.3&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;args&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;istio-iptables&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-p&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;15001&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-z&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;15006&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-u&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;1337&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-m&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;REDIRECT&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-i&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;*&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-x&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-b&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;*&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;-d&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;15090,15021,15020&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=o>]</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;securityContext&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;allowPrivilegeEscalation&#34;</span>: false,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;privileged&#34;</span>: false,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;readOnlyRootFilesystem&#34;</span>: false,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;runAsGroup&#34;</span>: 0,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;runAsNonRoot&#34;</span>: false,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;runAsUser&#34;</span>: <span class=m>0</span>
+</span></span><span class=line><span class=cl>  <span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>因此，要搞清楚为什么是服务端看到的是 127.0.0.6，就要看 Envoy 的配置了。</p><h3 id=3-istio-config-查看-envoy-配置>3. istio-config 查看 Envoy 配置</h3><p>接着上面的分析，由于所有的 18080 端口的请求，都被 iptables 发往 15006 端口，现在来看 15006 端口的 Envoy 配置。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ istioctl proxy-config listener -n demo-to simple-server-86b499d4dd-bjrjz --port<span class=o>=</span><span class=m>15006</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>ADDRESS PORT  MATCH                                                                    DESTINATION
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Addr: *:15006                                                            Non-HTTP/Non-TCP
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> App: istio-http/1.0,istio-http/1.1,istio-h2<span class=p>;</span> Addr: 0.0.0.0/0 InboundPassthroughClusterIpv4
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: raw_buffer<span class=p>;</span> App: HTTP<span class=p>;</span> Addr: 0.0.0.0/0                            InboundPassthroughClusterIpv4
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> App: TCP TLS<span class=p>;</span> Addr: 0.0.0.0/0                                InboundPassthroughClusterIpv4
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: raw_buffer<span class=p>;</span> Addr: 0.0.0.0/0                                       InboundPassthroughClusterIpv4
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> Addr: 0.0.0.0/0                                              InboundPassthroughClusterIpv4
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> App: istio-http/1.0,istio-http/1.1,istio-h2<span class=p>;</span> Addr: *:18080   Cluster: inbound<span class=p>|</span>18080<span class=o>||</span>
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: raw_buffer<span class=p>;</span> App: HTTP<span class=p>;</span> Addr: *:18080                              Cluster: inbound<span class=p>|</span>18080<span class=o>||</span>
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> App: TCP TLS<span class=p>;</span> Addr: *:18080                                  Cluster: inbound<span class=p>|</span>18080<span class=o>||</span>
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: raw_buffer<span class=p>;</span> Addr: *:18080                                         Cluster: inbound<span class=p>|</span>18080<span class=o>||</span>
+</span></span><span class=line><span class=cl>0.0.0.0 <span class=m>15006</span> Trans: tls<span class=p>;</span> Addr: *:18080                                                Cluster: inbound<span class=p>|</span>18080<span class=o>||</span>
+</span></span></code></pre></td></tr></table></div></div><p>流量路由分为 Inbound 和 Outbound 两个过程，下面将根据上文中的示例及 sidecar 的配置为读者详细分析此过程<sup id=fnref:12><a href=#fn:12 class=footnote-ref role=doc-noteref>12</a></sup>。</p><p><strong>理解 Inbound Handler</strong></p><p>从该 Pod 的 Listener 列表的最后两行中可以看到，0.0.0.0:15006/TCP 的 Listener（其实际名字是 virtualInbound）监听所有的 Inbound 流量，其中包含了匹配规则，来自任意 IP 的对 18080 端口的访问流量，将会路由到 inbound|18080|| Cluster，如果你想以 Json 格式查看该 Listener 的详细配置，可以执行 istioctl proxy-config listeners -n demo-to simple-server-86b499d4dd-bjrjz &ndash;port 15006 -o json 命令，你将获得类似下面的输出。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=o>[</span>
+</span></span><span class=line><span class=cl>  <span class=o>{</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;virtualInbound&#34;</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;address&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;socketAddress&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;address&#34;</span>: <span class=s2>&#34;0.0.0.0&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;portValue&#34;</span>: <span class=m>15006</span>
+</span></span><span class=line><span class=cl>      <span class=o>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>,
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;filterChains&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>      <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;filterChainMatch&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>          <span class=s2>&#34;destinationPort&#34;</span>: <span class=m>15006</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;filters&#34;</span>: <span class=o>[{</span>
+</span></span><span class=line><span class=cl>          <span class=c1># ... 省略</span>
+</span></span><span class=line><span class=cl>        <span class=o>}]</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;virtualInbound-blackhole&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=o>}</span>,
+</span></span><span class=line><span class=cl>      <span class=c1># ... 省略</span>
+</span></span><span class=line><span class=cl>      <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;filterChainMatch&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>          <span class=s2>&#34;destinationPort&#34;</span>: 18080,
+</span></span><span class=line><span class=cl>          <span class=s2>&#34;transportProtocol&#34;</span>: <span class=s2>&#34;raw_buffer&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;filters&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>          <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;envoy.filters.network.tcp_proxy&#34;</span>,
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;typedConfig&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>              <span class=s2>&#34;@type&#34;</span>: <span class=s2>&#34;type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy&#34;</span>,
+</span></span><span class=line><span class=cl>              <span class=s2>&#34;statPrefix&#34;</span>: <span class=s2>&#34;inbound|18080||&#34;</span>,
+</span></span><span class=line><span class=cl>              <span class=s2>&#34;cluster&#34;</span>: <span class=s2>&#34;inbound|18080||&#34;</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>
+</span></span><span class=line><span class=cl>          <span class=o>}</span>
+</span></span><span class=line><span class=cl>        <span class=o>]</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;0.0.0.0_18080&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=o>}</span>,
+</span></span><span class=line><span class=cl>    <span class=o>]</span>
+</span></span><span class=line><span class=cl>  <span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=o>]</span>
+</span></span></code></pre></td></tr></table></div></div><p>通过 envoy.filters.network.tcp_proxy，知道请求 15006 收到的请求，会发往 0.0.0.0_18080 Cluser。继续查看 0.0.0.0_18080 Cluster 的配置规则：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ istioctl proxy-config cluster -n demo-to simple-server-86b499d4dd-bjrjz --fqdn <span class=s2>&#34;inbound|18080||&#34;</span> 
+</span></span><span class=line><span class=cl>SERVICE FQDN     PORT      SUBSET     DIRECTION     TYPE             DESTINATION RULE
+</span></span><span class=line><span class=cl>                 <span class=m>18080</span>     -          inbound       ORIGINAL_DST     
+</span></span></code></pre></td></tr></table></div></div><p>TYPE 为 ORIGINAL_DST，表示将流量发送到原始目标地址（Pod IP），因为原始目标地址即当前 Pod。应该注意到 upstreamBindConfig.sourceAddress.address 的值被改写为了 127.0.0.6，而且对于 Pod 内流量是通过 lo 网卡发送的，这刚好呼应了上文中的 iptables ISTIO_OUTPUT 链中的第一条规则，根据该规则，流量将被透传到 Pod 内的应用容器。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ istioctl proxy-config cluster -n demo-to simple-server-86b499d4dd-bjrjz --fqdn <span class=s2>&#34;inbound|18080||&#34;</span>  -ojson
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>
+</span></span><span class=line><span class=cl>    <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;inbound|18080||&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;type&#34;</span>: <span class=s2>&#34;ORIGINAL_DST&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;connectTimeout&#34;</span>: <span class=s2>&#34;10s&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;lbPolicy&#34;</span>: <span class=s2>&#34;CLUSTER_PROVIDED&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;circuitBreakers&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;thresholds&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                <span class=o>{</span>
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;maxConnections&#34;</span>: 4294967295,
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;maxPendingRequests&#34;</span>: 4294967295,
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;maxRequests&#34;</span>: 4294967295,
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;maxRetries&#34;</span>: 4294967295,
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;trackRemaining&#34;</span>: <span class=nb>true</span>
+</span></span><span class=line><span class=cl>                <span class=o>}</span>
+</span></span><span class=line><span class=cl>            <span class=o>]</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;typedExtensionProtocolOptions&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;envoy.extensions.upstreams.http.v3.HttpProtocolOptions&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;@type&#34;</span>: <span class=s2>&#34;type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions&#34;</span>,
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;useDownstreamProtocolConfig&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;httpProtocolOptions&#34;</span>: <span class=o>{}</span>,
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;http2ProtocolOptions&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;maxConcurrentStreams&#34;</span>: <span class=m>1073741824</span>
+</span></span><span class=line><span class=cl>                    <span class=o>}</span>
+</span></span><span class=line><span class=cl>                <span class=o>}</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;cleanupInterval&#34;</span>: <span class=s2>&#34;60s&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;upstreamBindConfig&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;sourceAddress&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;address&#34;</span>: <span class=s2>&#34;127.0.0.6&#34;</span>,
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;portValue&#34;</span>: <span class=m>0</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;metadata&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;filterMetadata&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;istio&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;services&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                        <span class=o>{</span>
+</span></span><span class=line><span class=cl>                            <span class=s2>&#34;host&#34;</span>: <span class=s2>&#34;simple-server-svc.demo-to.svc.cluster.local&#34;</span>,
+</span></span><span class=line><span class=cl>                            <span class=s2>&#34;name&#34;</span>: <span class=s2>&#34;simple-server-svc&#34;</span>,
+</span></span><span class=line><span class=cl>                            <span class=s2>&#34;namespace&#34;</span>: <span class=s2>&#34;demo-to&#34;</span>
+</span></span><span class=line><span class=cl>                        <span class=o>}</span>
+</span></span><span class=line><span class=cl>                    <span class=o>]</span>
+</span></span><span class=line><span class=cl>                <span class=o>}</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=o>]</span>
+</span></span></code></pre></td></tr></table></div></div><p>现在我们知道，127.0.0.6 是 Envoy 绑定的地址。那如何解决了？</p><h2 id=解决办法>解决办法</h2><p>解决办法很简单，只需要 Istio 的 interceptionMode 模式从默认 REDIRECT 切换为 TPROXY，具体可以参考阿里云的文档<sup id=fnref:13><a href=#fn:13 class=footnote-ref role=doc-noteref>13</a></sup>。</p><h2 id=参考资料>参考资料</h2><div class=footnotes role=doc-endnotes><hr><ol><li id=fn:1><p><a href=https://istio.io/latest/zh/docs/tasks/observability/logs/access-log/>Isito Doc: 获取 Envoy 访问日志</a>&#160;<a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:2><p><a href=https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage>Envoy Doc: Access logging</a>&#160;<a href=#fnref:2 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:3><p><a href=https://dev.to/aws-builders/understanding-istio-access-logs-2k5o>Understanding Istio Access Logs</a>&#160;<a href=#fnref:3 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:4><p><a href=https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/response_code_details#response-code-details>Envoy Doc: Response Code Details</a>&#160;<a href=#fnref:4 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:5><p><a href=https://tetrate.io/blog/observe-service-mesh-with-skywalking-and-envoy-access-log-service>Observe Service Mesh with SkyWalking and Envoy Access Log Service</a>&#160;<a href=#fnref:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a>&#160;<a href=#fnref1:5 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:6><p><a href=https://istio-operation-bible.aeraki.net/docs/debug-istio/envoy-log/>Istio 运维实战：Envoy 日志调试指南</a>&#160;<a href=#fnref:6 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:7><p><a href=https://www.bbsmax.com/A/A2dmD9l45e/>istio 常见的 10 个异常</a>&#160;<a href=#fnref:7 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:8><p><a href=https://github.com/istio/istio/blob/1.11.3/tools/istio-iptables/pkg/cmd/root.go>istio-iptables 源码</a>&#160;<a href=#fnref:8 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:9><p><a href=https://jimmysong.io/blog/envoy-sidecar-injection-in-istio-service-mesh-deep-dive/>理解 Istio Service Mesh 中 Envoy 代理 Sidecar 注入及流量劫持</a>&#160;<a href=#fnref:9 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a>&#160;<a href=#fnref1:9 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:10><p><a href=https://kiyonlin.github.io/post/work/iptables/iptables-2-%E6%9F%A5%E8%AF%A2%E5%91%BD%E4%BB%A4/>iptables详解-查询命令</a>&#160;<a href=#fnref:10 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:11><p><a href=https://dong-dada.github.io/linux/2021/05/06/iptables.html>Linux - iptables</a>&#160;<a href=#fnref:11 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:12><p><a href=https://jimmysong.io/blog/sidecar-injection-iptables-and-traffic-routing/>Istio 中的 Sidecar 注入、透明流量劫持及流量路由过程详解</a>&#160;<a href=#fnref:12 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li><li id=fn:13><p><a href=https://help.aliyun.com/document_detail/464794.html>在服务网格环境下如何保持服务访问时的客户端源IP</a>&#160;<a href=#fnref:13 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></div></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
