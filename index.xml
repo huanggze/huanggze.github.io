@@ -1,4 +1,16 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hi Folks</title><link>https://huanggze.top/</link><description>Recent content on Hi Folks</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><copyright>© huanggze 2021</copyright><lastBuildDate>Wed, 14 Dec 2022 21:56:37 +0800</lastBuildDate><atom:link href="https://huanggze.top/index.xml" rel="self" type="application/rss+xml"/><item><title>Istio 客户端源 IP 保持</title><link>https://huanggze.top/posts/capture-packet-istio/</link><pubDate>Wed, 14 Dec 2022 21:56:37 +0800</pubDate><guid>https://huanggze.top/posts/capture-packet-istio/</guid><description>问题背景 发现默认部署的 Istio 服务网格下，服务端收到请求 IP 源地址是 127.0.0.6，而不是请求方的真实 IP 地址。
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hi Folks</title><link>https://huanggze.top/</link><description>Recent content on Hi Folks</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><copyright>© huanggze 2021</copyright><lastBuildDate>Sat, 14 Jan 2023 11:48:06 +0800</lastBuildDate><atom:link href="https://huanggze.top/index.xml" rel="self" type="application/rss+xml"/><item><title>如何设计 MySQL 索引（一）：基础概念</title><link>https://huanggze.top/posts/how-to-design-index/</link><pubDate>Sat, 14 Jan 2023 11:48:06 +0800</pubDate><guid>https://huanggze.top/posts/how-to-design-index/</guid><description>1. B+ Tree MySQL中的InnoDB引擎使用B+Tree结构来存储索引，可以尽量减少数据查询时磁盘IO次数，同时树的高度直接影响了查询的性能，一般树的高度维持在 3~4 层1。B+Tree中，只有叶子节点存储数据。
+从【根节点】到每个【叶子节点】的距离是相等的，也就是访问任何一个叶子节点，需要的 IO 是一样的，即索引树的高度 + 1 次 IO 操作。
+2. 数据页 当某个索引很大，大到达几十个G，远远超过了内存的容量时，MySQL不可能把整个索引全部加载到内存。MySQL 的做法是从磁盘以【页】为单位加载数据到内存。MySQL通过将索引拆分成页，一页为其最小数据单元，每次读取数据时，加载其中某几页数据。写也是按页，刷新一页的数据到磁盘。【页】是InnoDB存储引擎管理数据库的最小磁盘单位，一个页的大小一般是16KB23。
+3. 主键索引、辅助索引 主键索引：数据按照主键顺序存储（逻辑上是连续，物理上不连续），存储整行数据。如果没有显示的指定主键，MySQL 会将所有的列组合起来构造一个row_id作为primary key。由于叶子节点包含了完整的数据记录，所以主键索引又叫聚簇索引（clustered index）；
+辅助索引：也称为二级索引（secondary index），索引中除了存储索引列外，还存储了主键id，对于user_name的索引idx_user_name(user_name)而言，其实等价于idx_user_name(user_name, id)，MySQL会自动在辅助索引的最后添加上主键id，不需要要用户自己显式写出来。
+4. 页分裂 如果自定义主键 id 不是自增的（乱序），有发生页分裂的可能。考虑以下情况，如果页内存储的键值为 [20, 21, 22, 23, 24, 25, 26]，如果新增键值 27 时页满需要发生分裂。
+创建一个新页，确定在 23 的位置分裂，移动记录至新页。
+5. 页合并 当你删了一行记录时，实际上记录并没有被物理删除，记录被标记（flaged）为删除并且它的空间变得允许被其他记录声明使用。[&amp;amp;]
+当页中删除的记录达到MERGE_THRESHOLD（默认页体积的50%），InnoDB会开始寻找最靠近的页（前或后）看看是否可以将两个页合并以优化空间使用。刚好下一页使用了不到一半的空间，前一页又有足够的删除数量，它们能够进行合并。
+合并操作使得前一页数据保留，并且容纳来下一页的数据。原来下一页变成一个空页，可以接纳新数据：
+6. 文件排序 在 MySQL 中的 ORDER BY 有两种排序实现方式：利用有序索引排序（最优，using index）和文件排序（using filesort）。
+只有当ORDER BY中所有的列必须包含在相同的索引，并且索引的顺序和order by子句中的顺序完全一致，并且所有列的排序方向（升序或者降序）一样才有，（混合使用ASC模式和DESC模式则不使用索引）4。
+当排序数据量不超过 sort_buffer_size 系统变量所设置的容量时，MySQL 将会在内存使用快速排序算法进行排序（内部排序）；当排序数据量超过 sort_buffer_size 容量时，MySQL 将会借助临时磁盘文件使用归并排序算法进行排序（外部排序）在进行真正排序时，MySQL 又会根据数据单行长度是否超过 max_length_for_sort_data 而决定使用主键排序还是全字段排序，优先选择全字段排序，以减少回表次数5。</description></item><item><title>Istio 客户端源 IP 保持</title><link>https://huanggze.top/posts/capture-packet-istio/</link><pubDate>Wed, 14 Dec 2022 21:56:37 +0800</pubDate><guid>https://huanggze.top/posts/capture-packet-istio/</guid><description>问题背景 发现默认部署的 Istio 服务网格下，服务端收到请求 IP 源地址是 127.0.0.6，而不是请求方的真实 IP 地址。
 环境复现 环境复现总共需要准备的内容清单：
 服务端 Pod：打印客户端 IP 地址； 客户端 Pod：向服务端发送请求； K8s 环境：使用阿里云 ACK 部署 K8s 环境； Istio：安装 Istio。 各部署相关的注意事项见下面分小节的内容。
 1. 服务端 demo 在 18080 端口接收客户端请求，解析IP地址的方式设置为两种：读取 XFF 首部，或 request 的 RemoteAddr 字段。
