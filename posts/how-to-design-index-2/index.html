@@ -1,0 +1,584 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:title" content="如何设计 MySQL 索引（二）：实战"><meta property="og:description" content="题目一：联合索引 两种索引（status, create_time）、（create_time, status），以下 SQL 语句走哪个索引？[^1]
+1 2 3 select * from trade_info where status = 1 and create_time >= '2020-10-01 00:00:00' and create_time <= '2020-10-07 23:59:59'; 执行 explain 语句，可以看到使用了索引（status, create_time）。
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 explain select * from trade_info where status = 1 and create_time >='2021-10-01 00:00:00' and create_time <= '2021-10-07 23:59:59'\G *************************** 1. row *************************** id: 1 select_type: SIMPLE table: trade_info partitions: NULL type: index possible_keys: idx_create_time_status,idx_status_create_time key: idx_create_time_status key_len: 9 ref: NULL rows: 1 filtered: 100."><meta property="og:type" content="article"><meta property="og:url" content="https://huanggze.top/posts/how-to-design-index-2/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2023-01-14T20:42:52+08:00"><meta property="article:modified_time" content="2023-01-14T20:42:52+08:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="如何设计 MySQL 索引（二）：实战"><meta name=twitter:description content="题目一：联合索引 两种索引（status, create_time）、（create_time, status），以下 SQL 语句走哪个索引？[^1]
+1 2 3 select * from trade_info where status = 1 and create_time >= '2020-10-01 00:00:00' and create_time <= '2020-10-07 23:59:59'; 执行 explain 语句，可以看到使用了索引（status, create_time）。
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 explain select * from trade_info where status = 1 and create_time >='2021-10-01 00:00:00' and create_time <= '2021-10-07 23:59:59'\G *************************** 1. row *************************** id: 1 select_type: SIMPLE table: trade_info partitions: NULL type: index possible_keys: idx_create_time_status,idx_status_create_time key: idx_create_time_status key_len: 9 ref: NULL rows: 1 filtered: 100."><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#262d33"><title>Hi Folks - 如何设计 MySQL 索引（二）：实战</title><link rel="shortcut icon" href=/favicon.ico type=image/x-icon><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel=stylesheet><link rel=stylesheet href=/minima.1673755013.css><script defer type=text/javascript src=/minima.1673755013.js></script></head><script>try{"theme"in localStorage||(localStorage.theme=window.matchMedia("(prefer-color-scheme: dark)").matches?"dark":"light"),document.querySelector("html").classList.add(localStorage.theme)}catch(e){console.error(e)}</script><body class="sm:mx-5 sm:my-0"><header class="flex justify-between items-center mb-6 sm:my-3"><div class="flex items-center"><div id=theme-switcher class="text-4xl cursor-pointer">🌝</div></div><nav class="flex items-center
+whitespace-nowrap overflow-x-auto overflow-y-hidden"><a class=ml-5 href=/>Home</a>
+<a class=ml-5 href=/categories>Categories</a>
+<a class=ml-5 href=/series>Series</a>
+<a class=ml-5 href=/about>About</a></nav></header><details class="toc toc-lines"><summary></summary><div class=pb-1><nav id=TableOfContents><ul><li><a href=#题目一联合索引>题目一：联合索引</a></li><li><a href=#题目二联合索引>题目二：联合索引</a></li><li><a href=#题目三联合索引>题目三：联合索引</a></li><li><a href=#题目四排序查询>题目四：排序查询</a><ul><li><a href=#变体-1>变体 1</a></li><li><a href=#变体-2>变体 2</a></li><li><a href=#变体-3>变体 3</a></li><li><a href=#变体-4>变体 4</a></li></ul></li><li><a href=#题目五分组查询>题目五：分组查询</a></li><li><a href=#题目六分页查询>题目六：分页查询</a></li><li><a href=#题目七批量更新大数据>题目七：批量更新大数据</a></li><li><a href=#附录>附录</a></li><li><a href=#参考资料>参考资料</a></li></ul></nav></div></details><h1 class="mt-6 mb-6">如何设计 MySQL 索引（二）：实战</h1><div class="mb-3 text-xs flex justify-between sm:flex-col"><div>Posted at &mdash; Jan 14, 2023</div></div><main><p></p><article class=md><h2 id=题目一联合索引>题目一：联合索引</h2><p>两种索引（status, create_time）、（create_time, status），以下 SQL 语句走哪个索引？[^1]</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>select</span><span class=w>  </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=k>where</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=w> </span><span class=s1>&#39;2020-10-01 00:00:00&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>执行 explain 语句，可以看到使用了索引（status, create_time）。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>explain <span class=k>select</span> * from trade_info where <span class=nv>status</span> <span class=o>=</span> <span class=m>1</span> and create_time &gt;<span class=o>=</span><span class=s1>&#39;2021-10-01 00:00:00&#39;</span> and create_time &lt;<span class=o>=</span> <span class=s1>&#39;2021-10-07 23:59:59&#39;</span><span class=se>\G</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>*************************** 1. row ***************************
+</span></span><span class=line><span class=cl>           id: <span class=m>1</span>
+</span></span><span class=line><span class=cl>  select_type: SIMPLE
+</span></span><span class=line><span class=cl>        table: trade_info
+</span></span><span class=line><span class=cl>   partitions: NULL
+</span></span><span class=line><span class=cl>         type: index
+</span></span><span class=line><span class=cl>possible_keys: idx_create_time_status,idx_status_create_time
+</span></span><span class=line><span class=cl>          key: idx_create_time_status
+</span></span><span class=line><span class=cl>      key_len: <span class=m>9</span>
+</span></span><span class=line><span class=cl>          ref: NULL
+</span></span><span class=line><span class=cl>         rows: <span class=m>1</span>
+</span></span><span class=line><span class=cl>     filtered: 100.00
+</span></span><span class=line><span class=cl>        Extra: Using where<span class=p>;</span> Using index
+</span></span></code></pre></td></tr></table></div></div><p>进一步通过 optimizer_trace 来跟踪优化器的选择。MySQL 的 CBO（Cost-Based Optimizer 基于成本的优化器）选择的是复合索引 idx_status_create_time，因为该索引中的 status 和 create_time 都能参与了数据过滤，成本较低；而 idx_create_time_status 只有 create_time 参数数据过滤，status 被忽略了。</p><p>这是因为，status = 1 是精确匹配，create_time 是范围匹配，根据最左前缀匹配原则用（status，create_time）。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 开启optimizer_trace跟踪
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>set</span><span class=w> </span><span class=k>session</span><span class=w> </span><span class=n>optimizer_trace</span><span class=o>=</span><span class=s2>&#34;enabled=on&#34;</span><span class=p>,</span><span class=n>end_markers_in_json</span><span class=o>=</span><span class=k>on</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 执行SQL语句
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>select</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=k>where</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=w> </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=s1>&#39;2021-10-01 00:00:00&#39;</span><span class=w> </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2021-10-07 23:59:59&#39;</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 查看跟踪结果
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>SELECT</span><span class=w> </span><span class=n>trace</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>information_schema</span><span class=p>.</span><span class=n>OPTIMIZER_TRACE</span><span class=err>\</span><span class=k>G</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>*************************** 1. row ***************************
+</span></span><span class=line><span class=cl>trace: <span class=o>{</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;steps&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>    // 省略...
+</span></span><span class=line><span class=cl>    <span class=o>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;join_optimization&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;steps&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>          <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;rows_estimation&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>              <span class=o>{</span>
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;table&#34;</span>: <span class=s2>&#34;`trade_info`&#34;</span>,
+</span></span><span class=line><span class=cl>                  <span class=s2>&#34;potential_range_indexes&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                    <span class=o>{</span>
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;index&#34;</span>: <span class=s2>&#34;PRIMARY&#34;</span>,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;usable&#34;</span>: false,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;cause&#34;</span>: <span class=s2>&#34;not_applicable&#34;</span>
+</span></span><span class=line><span class=cl>                    <span class=o>}</span>,
+</span></span><span class=line><span class=cl>                    <span class=o>{</span>
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;index&#34;</span>: <span class=s2>&#34;idx_create_time_status&#34;</span>,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;usable&#34;</span>: true,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;key_parts&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;create_time&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;status&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;id&#34;</span>
+</span></span><span class=line><span class=cl>                      <span class=o>]</span>
+</span></span><span class=line><span class=cl>                    <span class=o>}</span>,
+</span></span><span class=line><span class=cl>                    <span class=o>{</span>
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;index&#34;</span>: <span class=s2>&#34;idx_status_create_time&#34;</span>,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;usable&#34;</span>: true,
+</span></span><span class=line><span class=cl>                      <span class=s2>&#34;key_parts&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;status&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;create_time&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;id&#34;</span>
+</span></span><span class=line><span class=cl>                      <span class=o>]</span>
+</span></span><span class=line><span class=cl>                    <span class=o>}</span>
+</span></span><span class=line><span class=cl>                  <span class=o>]</span>,
+</span></span><span class=line><span class=cl>                  <span class=s2>&#34;analyzing_range_alternatives&#34;</span>: <span class=o>{</span>
+</span></span><span class=line><span class=cl>                    <span class=s2>&#34;range_scan_alternatives&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                      <span class=o>{</span>
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;index&#34;</span>: <span class=s2>&#34;idx_create_time_status&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;ranges&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                          <span class=s2>&#34;0x41cb0f &lt;= create_time &lt;= 0x47cb0f&#34;</span>
+</span></span><span class=line><span class=cl>                        <span class=o>]</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;cost&#34;</span>: 0.36,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;chosen&#34;</span>: false,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;cause&#34;</span>: <span class=s2>&#34;cost&#34;</span>
+</span></span><span class=line><span class=cl>                      <span class=o>}</span>,
+</span></span><span class=line><span class=cl>                      <span class=o>{</span>
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;index&#34;</span>: <span class=s2>&#34;idx_status_create_time&#34;</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;ranges&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>                          <span class=s2>&#34;1 &lt;= status &lt;= 1 AND 0x41cb0f &lt;= create_time &lt;= 0x47cb0f&#34;</span>
+</span></span><span class=line><span class=cl>                        <span class=o>]</span>,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;cost&#34;</span>: 0.36,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;chosen&#34;</span>: false,
+</span></span><span class=line><span class=cl>                        <span class=s2>&#34;cause&#34;</span>: <span class=s2>&#34;cost&#34;</span>
+</span></span><span class=line><span class=cl>                      <span class=o>}</span>
+</span></span><span class=line><span class=cl>                    <span class=o>]</span>
+</span></span><span class=line><span class=cl>                  <span class=o>}</span>
+</span></span><span class=line><span class=cl>                <span class=o>}</span>
+</span></span><span class=line><span class=cl>            <span class=o>]</span>
+</span></span><span class=line><span class=cl>          <span class=o>}</span>
+</span></span><span class=line><span class=cl>        <span class=o>]</span>
+</span></span><span class=line><span class=cl>      <span class=o>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>  <span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=题目二联合索引>题目二：联合索引</h2><p>where 的顺序，会对索引选择有影响吗？答案是不会，以下 SQL 仍然选择索引 idx_create_time_status。查询引擎会自动优化为匹配联合索引的顺序。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>select</span><span class=w>  </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=n>trade_info</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>where</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=w> </span><span class=s1>&#39;2020-10-01 00:00:00&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>and</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=题目三联合索引>题目三：联合索引</h2><p>user表有索引（name, age, birthday）。注意以下例子中第一个，和第三个，等同，只用到了复合索引中的第一列 name。当创建 (a,b,c) 复合索引时，想要索引生效的话，只能使用 a 和 ab、ac 和 abc 三种组合。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，用到（name）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>age</span><span class=o>=</span><span class=mi>18</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，用到（name, age）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=p>;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，等同于第一个，用到（name）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>age</span><span class=o>=</span><span class=mi>18</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=p>;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，用到（name, age, birthday）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>age</span><span class=o>=</span><span class=mi>18</span><span class=p>;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，用到（name, age, birthday）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>age</span><span class=o>=</span><span class=mi>18</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=p>;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 可以命中索引，用到（name, age, birthday）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>from</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>age</span><span class=o>=</span><span class=mi>18</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=p>;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 无法命中索引    
+</span></span></span></code></pre></td></tr></table></div></div><p>关于 EXPLAIN 语句的介绍：<a href=http://khaidoan.wikidot.com/mysql-using-explain>http://khaidoan.wikidot.com/mysql-using-explain</a>。注意下面例子中的 key_len、ref 字段。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; explain SELECT * from user WHERE <span class=nv>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span> AND <span class=nv>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------+------+----------+-----------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys     <span class=p>|</span> key               <span class=p>|</span> key_len <span class=p>|</span> ref   <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra                 <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------+------+----------+-----------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> user  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> name_age_birthday <span class=p>|</span> name_age_birthday <span class=p>|</span> <span class=m>123</span>     <span class=p>|</span> const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using index condition <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------+------+----------+-----------------------+
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>mysql&gt; explain SELECT * from user WHERE <span class=nv>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span> AND <span class=nv>age</span><span class=o>=</span><span class=m>18</span> AND <span class=nv>name</span><span class=o>=</span><span class=s1>&#39;Tom&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------------------+------+----------+-------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys     <span class=p>|</span> key               <span class=p>|</span> key_len <span class=p>|</span> ref               <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------------------+------+----------+-------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> user  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> name_age_birthday <span class=p>|</span> name_age_birthday <span class=p>|</span> <span class=m>132</span>     <span class=p>|</span> const,const,const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> NULL  <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+-------------------+-------------------+---------+-------------------+------+----------+-------+
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>mysql&gt; explain SELECT * from user WHERE <span class=nv>age</span><span class=o>=</span><span class=m>18</span> AND <span class=nv>birthday</span><span class=o>=</span><span class=s1>&#39;2000-01-01 00:00:00&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+------+---------+------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key  <span class=p>|</span> key_len <span class=p>|</span> ref  <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra       <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+------+---------+------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> user  <span class=p>|</span> NULL       <span class=p>|</span> ALL  <span class=p>|</span> NULL          <span class=p>|</span> NULL <span class=p>|</span> NULL    <span class=p>|</span> NULL <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using where <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+------+---------+------+------+----------+-------------+
+</span></span></code></pre></td></tr></table></div></div><h2 id=题目四排序查询>题目四：排序查询</h2><p>表 test 有联合索引（c1, c2, c3, c4）[^2]。下面这个c3及以后的索引全失效，因此只用到了两个索引，c3、c4要进行排序查找。</p><h3 id=变体-1>变体 1</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c4</span><span class=o>=</span><span class=s1>&#39;a4&#39;</span><span class=w> </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>c3</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT * FROM <span class=nb>test</span> WHERE <span class=nv>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span> AND <span class=nv>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span> AND <span class=nv>c4</span><span class=o>=</span><span class=s1>&#39;a4&#39;</span> ORDER BY c3<span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-----------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key       <span class=p>|</span> key_len <span class=p>|</span> ref         <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra                 <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-----------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> <span class=nb>test</span>  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> idx_c1234     <span class=p>|</span> idx_c1234 <span class=p>|</span> <span class=m>10</span>      <span class=p>|</span> const,const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using index condition <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-----------------------+
+</span></span></code></pre></td></tr></table></div></div><p>Extra 的解释表是怎么被处理的，一些值表明 query 是高效的（using index），一些表示是低效（using filesort、using temporary）。这里 using index condition 表示使用了索引下推（index condition push-down）。</p><h3 id=变体-2>变体 2</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span><span class=w> </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>c4</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>用到了 c1,c2 索引，但是 c4 是用于排序，中间的 c3 索引断了，MySQL 会使用文件内排序给出查询结果，这样子就导致了性能下降。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT * FROM <span class=nb>test</span> WHERE <span class=nv>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span> AND <span class=nv>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span> ORDER BY c4<span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+----------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key       <span class=p>|</span> key_len <span class=p>|</span> ref         <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra          <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+----------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> <span class=nb>test</span>  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> idx_c1234     <span class=p>|</span> idx_c1234 <span class=p>|</span> <span class=m>10</span>      <span class=p>|</span> const,const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using filesort <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+----------------+
+</span></span></code></pre></td></tr></table></div></div><h3 id=变体-3>变体 3</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c5</span><span class=o>=</span><span class=s1>&#39;a5&#39;</span><span class=w> </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>c2</span><span class=p>,</span><span class=w> </span><span class=n>c3</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>用到了 c1，c2 索引，但是 c2、c3 是用于排序，没有出现 filesort，性能可以。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT * FROM <span class=nb>test</span> WHERE <span class=nv>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span> AND <span class=nv>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span> AND <span class=nv>c5</span><span class=o>=</span><span class=s1>&#39;a5&#39;</span> ORDER BY c2, c3<span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key       <span class=p>|</span> key_len <span class=p>|</span> ref         <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra       <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> <span class=nb>test</span>  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> idx_c1234     <span class=p>|</span> idx_c1234 <span class=p>|</span> <span class=m>10</span>      <span class=p>|</span> const,const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using where <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span></code></pre></td></tr></table></div></div><h3 id=变体-4>变体 4</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c5</span><span class=o>=</span><span class=s1>&#39;a5&#39;</span><span class=w> </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>c3</span><span class=p>,</span><span class=w> </span><span class=n>c2</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>将c2、c3的顺序倒置，竟然没有出现filesort，这是因为c2=‘a2’，order by中的 c2 字段已经是一个常量了，所以真正排序的字段就只有c3.</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT * FROM <span class=nb>test</span> WHERE <span class=nv>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span> AND <span class=nv>c2</span><span class=o>=</span><span class=s1>&#39;a2&#39;</span> AND <span class=nv>c5</span><span class=o>=</span><span class=s1>&#39;a5&#39;</span> ORDER BY c3, c2<span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key       <span class=p>|</span> key_len <span class=p>|</span> ref         <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra       <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> <span class=nb>test</span>  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> idx_c1234     <span class=p>|</span> idx_c1234 <span class=p>|</span> <span class=m>10</span>      <span class=p>|</span> const,const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using where <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------------+------+----------+-------------+
+</span></span></code></pre></td></tr></table></div></div><h2 id=题目五分组查询>题目五：分组查询</h2><p>group by表面上是分组，但实际上分组的前提必须排序。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=n>c1</span><span class=p>,</span><span class=n>c2</span><span class=p>,</span><span class=n>c3</span><span class=p>,</span><span class=n>c4</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>c4</span><span class=o>=</span><span class=s1>&#39;a4&#39;</span><span class=w> </span><span class=k>GROUP</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>c3</span><span class=p>,</span><span class=w> </span><span class=n>c2</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT c1,c2,c3,c4 FROM <span class=nb>test</span> WHERE <span class=nv>c1</span><span class=o>=</span><span class=s1>&#39;a1&#39;</span> AND <span class=nv>c4</span><span class=o>=</span><span class=s1>&#39;a4&#39;</span> GROUP BY c3, c2<span class=p>;</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------+------+----------+-------------------------------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span> <span class=p>|</span> possible_keys <span class=p>|</span> key       <span class=p>|</span> key_len <span class=p>|</span> ref   <span class=p>|</span> rows <span class=p>|</span> filtered <span class=p>|</span> Extra                                     <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------+------+----------+-------------------------------------------+
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> <span class=nb>test</span>  <span class=p>|</span> NULL       <span class=p>|</span> ref  <span class=p>|</span> idx_c1234     <span class=p>|</span> idx_c1234 <span class=p>|</span> <span class=m>5</span>       <span class=p>|</span> const <span class=p>|</span>    <span class=m>1</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using where<span class=p>;</span> Using index<span class=p>;</span> Using temporary <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+------+---------------+-----------+---------+-------+------+----------+-------------------------------------------+
+</span></span></code></pre></td></tr></table></div></div><h2 id=题目六分页查询>题目六：分页查询</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w>  </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>0</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>AND</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=w> </span><span class=s1>&#39;2020-10-01 00:00:00&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>AND</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=k>DESC</span><span class=w> </span><span class=k>LIMIT</span><span class=w> </span><span class=mi>102120</span><span class=p>,</span><span class=w> </span><span class=mi>20</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>对于典型的分页 limit m, n 来说，越往后翻页越慢，也就是m越大会越慢，因为要定位m位置需要扫描的数据越来越多，导致IO开销比较大。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; EXPLAIN SELECT * FROM trade_info WHERE <span class=nv>status</span> <span class=o>=</span> <span class=m>0</span> AND create_time &gt;<span class=o>=</span> <span class=s1>&#39;2020-10-01 00:00:00&#39;</span> AND create_time &lt;<span class=o>=</span> <span class=s1>&#39;2020-10-07 23:59:59&#39;</span> ORDER BY id DESC LIMIT 102120, 20<span class=se>\G</span>
+</span></span><span class=line><span class=cl>*************************** 1. row ***************************
+</span></span><span class=line><span class=cl>           id: <span class=m>1</span>
+</span></span><span class=line><span class=cl>  select_type: SIMPLE
+</span></span><span class=line><span class=cl>        table: trade_info
+</span></span><span class=line><span class=cl>   partitions: NULL
+</span></span><span class=line><span class=cl>         type: index
+</span></span><span class=line><span class=cl>possible_keys: create_time_status,status_create_time
+</span></span><span class=line><span class=cl>          key: PRIMARY
+</span></span><span class=line><span class=cl>      key_len: <span class=m>4</span>
+</span></span><span class=line><span class=cl>          ref: NULL
+</span></span><span class=line><span class=cl>         rows: <span class=m>1</span>
+</span></span><span class=line><span class=cl>     filtered: 100.00
+</span></span><span class=line><span class=cl>        Extra: Using where<span class=p>;</span> Backward index scan
+</span></span></code></pre></td></tr></table></div></div><p>这里可以利用辅助索引的【索引覆盖】来进行优化，先获取 id，这一步就是索引覆盖扫描，不需要回表，然后通过 id 跟原表 trade_info 进行关联，改写后的 SQL 如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=k>AS</span><span class=w> </span><span class=n>a</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>(</span><span class=k>SELECT</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>AND</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=w> </span><span class=s1>&#39;2020-10-01 00:00:00&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>AND</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>ORDER</span><span class=w> </span><span class=k>BY</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=k>DESC</span><span class=w> </span><span class=k>LIMIT</span><span class=w> </span><span class=mi>102120</span><span class=p>,</span><span class=w> </span><span class=mi>20</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>)</span><span class=w> </span><span class=k>AS</span><span class=w> </span><span class=n>b</span><span class=w> </span><span class=c1>-- 这一步走的是索引覆盖扫描，不需要回表
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>WHERE</span><span class=w> </span><span class=n>a</span><span class=p>.</span><span class=n>id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>b</span><span class=p>.</span><span class=n>id</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; explain <span class=k>select</span> * from trade_info as a, <span class=o>(</span><span class=k>select</span>  id from trade_info where <span class=nv>status</span> <span class=o>=</span> <span class=m>0</span> and create_time &gt;<span class=o>=</span> <span class=s1>&#39;2020-10-01 00:00:00&#39;</span> and create_time &lt;<span class=o>=</span> <span class=s1>&#39;2020-10-07 23:59:59&#39;</span> order by id desc limit 102120, 20<span class=o>)</span> as b where a.id <span class=o>=</span> b.id<span class=se>\G</span>
+</span></span><span class=line><span class=cl>*************************** 1. row ***************************
+</span></span><span class=line><span class=cl>           id: <span class=m>1</span>
+</span></span><span class=line><span class=cl>  select_type: PRIMARY
+</span></span><span class=line><span class=cl>        table: a
+</span></span><span class=line><span class=cl>   partitions: NULL
+</span></span><span class=line><span class=cl>         type: index
+</span></span><span class=line><span class=cl>possible_keys: PRIMARY
+</span></span><span class=line><span class=cl>          key: idx_status_create_time
+</span></span><span class=line><span class=cl>      key_len: <span class=m>9</span>
+</span></span><span class=line><span class=cl>          ref: NULL
+</span></span><span class=line><span class=cl>         rows: <span class=m>1</span>
+</span></span><span class=line><span class=cl>     filtered: 100.00
+</span></span><span class=line><span class=cl>        Extra: Using index
+</span></span><span class=line><span class=cl>*************************** 2. row ***************************
+</span></span><span class=line><span class=cl>           id: <span class=m>1</span>
+</span></span><span class=line><span class=cl>  select_type: PRIMARY
+</span></span><span class=line><span class=cl>        table: &lt;derived2&gt;
+</span></span><span class=line><span class=cl>   partitions: NULL
+</span></span><span class=line><span class=cl>         type: ref
+</span></span><span class=line><span class=cl>possible_keys: &lt;auto_key0&gt;
+</span></span><span class=line><span class=cl>          key: &lt;auto_key0&gt;
+</span></span><span class=line><span class=cl>      key_len: <span class=m>4</span>
+</span></span><span class=line><span class=cl>          ref: test.a.id
+</span></span><span class=line><span class=cl>         rows: <span class=m>2</span>
+</span></span><span class=line><span class=cl>     filtered: 100.00
+</span></span><span class=line><span class=cl>        Extra: Using index
+</span></span><span class=line><span class=cl>*************************** 3. row ***************************
+</span></span><span class=line><span class=cl>           id: <span class=m>2</span>
+</span></span><span class=line><span class=cl>  select_type: DERIVED
+</span></span><span class=line><span class=cl>        table: trade_info
+</span></span><span class=line><span class=cl>   partitions: NULL
+</span></span><span class=line><span class=cl>         type: index
+</span></span><span class=line><span class=cl>possible_keys: idx_status_create_time,idx_create_time_status
+</span></span><span class=line><span class=cl>          key: PRIMARY
+</span></span><span class=line><span class=cl>      key_len: <span class=m>4</span>
+</span></span><span class=line><span class=cl>          ref: NULL
+</span></span><span class=line><span class=cl>         rows: <span class=m>1</span>
+</span></span><span class=line><span class=cl>     filtered: 100.00
+</span></span><span class=line><span class=cl>        Extra: Using where<span class=p>;</span> Backward index scan
+</span></span></code></pre></td></tr></table></div></div><h2 id=题目七批量更新大数据>题目七：批量更新大数据</h2><p>营销系统有一批过期的优惠卷要失效，核心SQL如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 需要更新的数据量500w
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>update</span><span class=w> </span><span class=n>coupons</span><span class=w> </span><span class=k>set</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=w> </span><span class=k>where</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=mi>0</span><span class=w> </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;=</span><span class=w> </span><span class=s1>&#39;2020-10-01 00:00:00&#39;</span><span class=w> </span><span class=k>and</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>在 Oracle 里更新 500w 数据是很快，因为可以利用多个 cpu core 去执行，但是 MySQL 就需要注意了，一个 SQL 只能使用一个 cpu core 去处理，如果SQL很复杂或执行很慢，就会阻塞后面的 SQL 请求，造成活动连接数暴增，MySQL CPU 100%，相应的接口 Timeout，同时对于主从复制架构，而且做了业务读写分离，更新 500w 数据需要 5 分钟，Master 上执行了 5 分钟，binlog 传到了 Slave 也需要执行 5 分钟，那就是 Slave 延迟 5 分钟，在这期间会造成业务脏数据，比如重复下单等[^1]。</p><p>优化思路：分而治之。先获取 where 条件中的最小 id 和最大 id，然后分批次去更新，每个批次 1000 条，这样既能快速完成更新，又能保证主从复制不会出现延迟。</p><ol><li>先获取要更新的数据范围内的最小 id 和最大 id（表没有物理 delete，所以 id 是连续的）</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>mysql&gt; explain <span class=k>select</span> min<span class=o>(</span>id<span class=o>)</span> min_id, max<span class=o>(</span>id<span class=o>)</span> max_id from coupons where <span class=nv>status</span> <span class=o>=</span><span class=m>0</span> and create_time &gt;<span class=o>=</span> <span class=s1>&#39;2020-10-01 00:00:00&#39;</span> and create_time &lt;<span class=o>=</span> <span class=s1>&#39;2020-10-07 23:59:59&#39;</span><span class=p>;</span> 
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+-------+------------------------+------------------------+---------+---
+</span></span><span class=line><span class=cl><span class=p>|</span> id <span class=p>|</span> select_type <span class=p>|</span> table <span class=p>|</span> partitions <span class=p>|</span> <span class=nb>type</span>  <span class=p>|</span> possible_keys          <span class=p>|</span> key                    <span class=p>|</span> key_len <span class=p>|</span> ref  <span class=p>|</span> rows   <span class=p>|</span> filtered <span class=p>|</span> Extra                    <span class=p>|</span>
+</span></span><span class=line><span class=cl>+----+-------------+-------+------------+-------+------------------------+------------------------+---------+---
+</span></span><span class=line><span class=cl><span class=p>|</span>  <span class=m>1</span> <span class=p>|</span> SIMPLE      <span class=p>|</span> users <span class=p>|</span> NULL       <span class=p>|</span> range <span class=p>|</span> idx_status_create_time <span class=p>|</span> idx_status_create_time <span class=p>|</span> <span class=m>6</span>       <span class=p>|</span> NULL <span class=p>|</span> <span class=m>180300</span> <span class=p>|</span>   100.00 <span class=p>|</span> Using where<span class=p>;</span> Using index <span class=p>|</span>
+</span></span></code></pre></td></tr></table></div></div><ol start=2><li>以每次 1000 条 commit 一次进行循环 update，主要代码如下：</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=nv>current_id</span> <span class=o>=</span> min_id<span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>for</span>  current_id &lt; max_id <span class=k>do</span>
+</span></span><span class=line><span class=cl>  update coupons <span class=nb>set</span> <span class=nv>status</span> <span class=o>=</span> <span class=m>1</span> where id &gt;<span class=o>=</span>current_id and id &lt;<span class=o>=</span> current_id + 1000<span class=p>;</span>  // 通过主键id更新 <span class=m>1000</span> 条很快
+</span></span><span class=line><span class=cl>commit<span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=nv>current_id</span> <span class=o>+=</span> 1000<span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=附录>附录</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 题目一
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>trade_info</span><span class=w> </span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>id</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>status</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>create_time</span><span class=w> </span><span class=nb>DATE</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=w> </span><span class=p>(</span><span class=n>id</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>KEY</span><span class=w> </span><span class=n>idx_status_create_time</span><span class=w> </span><span class=p>(</span><span class=n>status</span><span class=p>,</span><span class=w> </span><span class=n>create_time</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>KEY</span><span class=w> </span><span class=n>idx_create_time_status</span><span class=w> </span><span class=p>(</span><span class=n>create_time</span><span class=p>,</span><span class=w> </span><span class=n>status</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 删除索引
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>DROP</span><span class=w> </span><span class=k>INDEX</span><span class=w> </span><span class=n>idx_status_create_time</span><span class=w> </span><span class=k>ON</span><span class=w> </span><span class=n>trade_info</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 创建索引
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>CREATE</span><span class=w> </span><span class=k>INDEX</span><span class=w> </span><span class=n>idx_status_create_time</span><span class=w> </span><span class=k>ON</span><span class=w> </span><span class=n>trade_info</span><span class=p>(</span><span class=n>status</span><span class=p>,</span><span class=w> </span><span class=n>create_time</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 题目三
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=k>user</span><span class=w> </span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>id</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>name</span><span class=w> </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>30</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>age</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>birthday</span><span class=w> </span><span class=nb>DATE</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>addr</span><span class=w> </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>30</span><span class=p>),</span><span class=w> </span><span class=c1>-- 必须要多加几个其他字段做测试
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>    </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=w> </span><span class=p>(</span><span class=n>id</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>KEY</span><span class=w> </span><span class=n>name_age_birthday</span><span class=w> </span><span class=p>(</span><span class=n>name</span><span class=p>,</span><span class=w> </span><span class=n>age</span><span class=p>,</span><span class=w> </span><span class=n>birthday</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 题目四
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>test</span><span class=w> </span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>id</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>c1</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>c2</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>c3</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>c4</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>c5</span><span class=w> </span><span class=nb>INT</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=w> </span><span class=p>(</span><span class=n>id</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=k>KEY</span><span class=w> </span><span class=n>idx_c1234</span><span class=w> </span><span class=p>(</span><span class=n>c1</span><span class=p>,</span><span class=w> </span><span class=n>c2</span><span class=p>,</span><span class=w> </span><span class=n>c3</span><span class=p>,</span><span class=w> </span><span class=n>c4</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>);</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=参考资料>参考资料</h2><p>[^1] <a href=https://segmentfault.com/a/1190000038921156>阿里面试官：MySQL如何设计索引更高效？</a>
+[^2] <a href=https://developer.aliyun.com/article/1113711>MySQL索引面试题分析</a></p></article></main><script>const repo="mivinci/hugo-theme-minima",issueTerm="pathname",theme=localStorage.theme?`github-${localStorage.theme}`:"preferred-color-scheme",script=document.createElement("script");script.src="https://utteranc.es/client.js",script.async=!0,script.crossOrigin="anonymous",script.setAttribute("repo",repo),script.setAttribute("issue-term",issueTerm),script.setAttribute("theme",theme),script.setAttribute("label","comment"),document.querySelector("main").appendChild(script)</script><footer class="mt-8 flex sm:flex-col-reverse justify-between items-center"><p class="mt-0 text-sm">© huanggze 2021 |
+<a href=https://gohugo.io target=_blank rel="noopener noreferrer">Hugo</a> on
+<a href=https://github.com/mivinci/hugo-theme-minima target=_blank rel="noopener noreferrer">Minima</a></p><p class="flex items-center mt-0"><a class="icon mx-2" href=https://github.com/huanggze title=github><svg fill="#63636f" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63.0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577.0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93.0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176.0.0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22.0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22.0 1.606-.015 2.896-.015 3.286.0.315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a><a class="icon mx-2" href=/index.xml title=rss><svg fill="#63636f" t="1626591563876" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" p-id="1984" width="18" height="16"><path d="M128 768a128 128 0 100 256 128 128 0 000-256zM0 368v176c265.104.0 480 214.912 480 480h176c0-362.32-293.696-656-656-656zM0 0v176c468.336.0 848 379.664 848 848h176C1024 458.464 565.536.0.0.0z" p-id="1985"/></svg></a></p></footer></body></html>
