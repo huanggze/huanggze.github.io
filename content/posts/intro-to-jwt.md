@@ -96,6 +96,7 @@ token的缺点是：一旦生成无法让其失效，必须等到其过期才行
 JSON Web Key Set，是多个JWK组合在一起的一种格式。JWKS 提供 JWKS URI 来提供证书查询。验证客户端 token 时，检查 header 中的 kid 来找到正确的公钥证书，验证签名。
 
 ![](https://curity.io/images/resources/openidconnect/assertions/assertion-verification.svg)
+[^5]
 
 ## 参考资料
 
@@ -103,3 +104,4 @@ JSON Web Key Set，是多个JWK组合在一起的一种格式。JWKS 提供 JWKS
 [^2]: [session、cookie、token工作原理及区别](https://zhuanlan.zhihu.com/p/445149223)
 [^3]: [Part 6. Authentication with JWT, JSON Web Token](https://losikov.medium.com/part-6-authentication-with-jwt-json-web-token-ec78459b9c88)
 [^4]: [JWT 介绍 - Step by Step](https://www.cnblogs.com/ittranslator/p/14595165.html)
+[^5]: [Client Assertions and the JWKS URI](https://curity.io/resources/learn/client-assertions-jwks-uri/)
